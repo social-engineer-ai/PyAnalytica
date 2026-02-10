@@ -1,0 +1,1 @@
+"""PyAnalytica core module."""
