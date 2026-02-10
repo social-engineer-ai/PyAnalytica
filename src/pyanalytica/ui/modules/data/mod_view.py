@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
@@ -93,7 +94,7 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
     def view_table():
         df = filtered_df()
         req(df is not None)
-        return render.DataGrid(df.head(500), height="500px")
+        return render.DataGrid(round_df(df.head(500), state._decimals()), height="500px")
 
     @reactive.effect
     @reactive.event(input.apply_btn)

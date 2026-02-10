@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.explore.crosstab import create_crosstab
@@ -75,6 +76,6 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
     def crosstab_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(r.table.reset_index(), height="400px")
+        return render.DataGrid(round_df(r.table.reset_index(), state._decimals()), height="400px")
 
     code_panel_server("code", get_code=last_code)

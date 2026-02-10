@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.explore.summarize import group_summarize
@@ -60,6 +61,6 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
     def summary_table():
         df = result()
         req(df is not None)
-        return render.DataGrid(df, height="500px")
+        return render.DataGrid(round_df(df, state._decimals()), height="500px")
 
     code_panel_server("code", get_code=last_code)

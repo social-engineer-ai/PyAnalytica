@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.load import load_bundled, load_csv, load_from_bytes, load_url
 from pyanalytica.datasets import list_datasets
@@ -91,6 +92,6 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
     def preview_table():
         df = get_current_df()
         req(df is not None)
-        return render.DataGrid(df.head(100), height="400px")
+        return render.DataGrid(round_df(df.head(100), state._decimals()), height="400px")
 
     code_panel_server("code", get_code=last_code)

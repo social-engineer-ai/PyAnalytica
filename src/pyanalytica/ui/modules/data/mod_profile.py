@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.data.profile import profile_dataframe
 
@@ -101,4 +102,4 @@ def profile_server(input, output, session, state: WorkbenchState, get_current_df
                 "Std": cp.std, "Min": cp.min_val, "Max": cp.max_val,
             }
             data.append(row)
-        return render.DataGrid(pd.DataFrame(data), height="500px")
+        return render.DataGrid(round_df(pd.DataFrame(data), state._decimals()), height="500px")

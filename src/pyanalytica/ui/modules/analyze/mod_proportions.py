@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.analyze.proportions import chi_square_test
@@ -68,12 +69,12 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
     def observed():
         r = result()
         req(r is not None)
-        return render.DataGrid(r.observed.reset_index())
+        return render.DataGrid(round_df(r.observed.reset_index(), state._decimals()))
 
     @render.data_frame
     def expected():
         r = result()
         req(r is not None)
-        return render.DataGrid(r.expected.reset_index())
+        return render.DataGrid(round_df(r.expected.reset_index(), state._decimals()))
 
     code_panel_server("code", get_code=last_code)

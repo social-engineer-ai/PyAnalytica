@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.explore.pivot import create_pivot_table
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
@@ -67,6 +68,6 @@ def pivot_server(input, output, session, state: WorkbenchState, get_current_df):
     def pivot_table():
         df = result()
         req(df is not None)
-        return render.DataGrid(df, height="500px")
+        return render.DataGrid(round_df(df, state._decimals()), height="500px")
 
     code_panel_server("code", get_code=last_code)

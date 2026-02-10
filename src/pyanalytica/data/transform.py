@@ -97,6 +97,17 @@ def convert_dtype(
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
+# --- Drop columns ---
+
+def drop_columns(
+    df: pd.DataFrame, cols: list[str]
+) -> tuple[pd.DataFrame, CodeSnippet]:
+    """Drop one or more columns from a DataFrame."""
+    result = df.drop(columns=cols).copy()
+    code = f"df = df.drop(columns={cols!r})"
+    return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+
 # --- Duplicates ---
 
 def drop_duplicates(

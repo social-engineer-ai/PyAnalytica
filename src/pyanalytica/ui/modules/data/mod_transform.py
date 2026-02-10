@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data import transform
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
@@ -18,6 +19,7 @@ def transform_ui():
             ui.input_select("action", "Transform Action", choices={
                 "fill_missing": "Fill Missing Values",
                 "drop_missing": "Drop Missing Rows",
+                "drop_columns": "Drop Column(s)",
                 "convert_dtype": "Convert Data Type",
                 "drop_duplicates": "Drop Duplicates",
                 "add_log": "Add Log Column",
@@ -47,7 +49,11 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         cols = list(df.columns) if df is not None else []
         action = input.action()
 
-        controls = [ui.input_select("col", "Column", choices=cols)]
+        if action == "drop_columns":
+            controls = [ui.input_selectize("drop_cols", "Columns to Drop",
+                choices=cols, multiple=True)]
+        else:
+            controls = [ui.input_select("col", "Column", choices=cols)]
 
         if action == "fill_missing":
             controls.append(ui.input_select("fill_method", "Method",
@@ -67,44 +73,50 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         df = get_current_df()
         req(df is not None)
         action = input.action()
-        col = input.col()
-        req(col)
 
         try:
-            if action == "fill_missing":
-                method = input.fill_method()
-                val = input.fill_value() if method == "value" else None
-                result, snippet = transform.fill_missing(df, col, method, val)
-            elif action == "drop_missing":
-                result, snippet = transform.drop_missing(df, [col])
-            elif action == "convert_dtype":
-                result, snippet = transform.convert_dtype(df, col, input.target_dtype())
-            elif action == "drop_duplicates":
-                result, snippet = transform.drop_duplicates(df, [col])
-            elif action == "add_log":
-                new_name = input.new_col_name() or f"{col}_log"
-                result, snippet = transform.add_column_log(df, new_name, col)
-            elif action == "add_zscore":
-                new_name = input.new_col_name() or f"{col}_zscore"
-                result, snippet = transform.add_column_zscore(df, new_name, col)
-            elif action == "add_rank":
-                new_name = input.new_col_name() or f"{col}_rank"
-                result, snippet = transform.add_column_rank(df, new_name, col)
-            elif action == "str_lower":
-                result, snippet = transform.str_lower(df, col)
-            elif action == "str_upper":
-                result, snippet = transform.str_upper(df, col)
-            elif action == "str_strip":
-                result, snippet = transform.str_strip(df, col)
+            if action == "drop_columns":
+                drop_cols = list(input.drop_cols())
+                req(len(drop_cols) > 0)
+                result, snippet = transform.drop_columns(df, drop_cols)
             else:
-                return
+                col = input.col()
+                req(col)
+                if action == "fill_missing":
+                    method = input.fill_method()
+                    val = input.fill_value() if method == "value" else None
+                    result, snippet = transform.fill_missing(df, col, method, val)
+                elif action == "drop_missing":
+                    result, snippet = transform.drop_missing(df, [col])
+                elif action == "convert_dtype":
+                    result, snippet = transform.convert_dtype(df, col, input.target_dtype())
+                elif action == "drop_duplicates":
+                    result, snippet = transform.drop_duplicates(df, [col])
+                elif action == "add_log":
+                    new_name = input.new_col_name() or f"{col}_log"
+                    result, snippet = transform.add_column_log(df, new_name, col)
+                elif action == "add_zscore":
+                    new_name = input.new_col_name() or f"{col}_zscore"
+                    result, snippet = transform.add_column_zscore(df, new_name, col)
+                elif action == "add_rank":
+                    new_name = input.new_col_name() or f"{col}_rank"
+                    result, snippet = transform.add_column_rank(df, new_name, col)
+                elif action == "str_lower":
+                    result, snippet = transform.str_lower(df, col)
+                elif action == "str_upper":
+                    result, snippet = transform.str_upper(df, col)
+                elif action == "str_strip":
+                    result, snippet = transform.str_strip(df, col)
+                else:
+                    return
 
             # Find and update the dataset
+            desc = f"{action}" if action == "drop_columns" else f"{action} on '{input.col()}'"
             for name in state.dataset_names():
                 if state.get(name) is get_current_df():
                     state.update(name, result, Operation(
                         timestamp=datetime.now(), action="transform",
-                        description=f"{action} on '{col}'", dataset=name,
+                        description=desc, dataset=name,
                     ))
                     state.codegen.record(snippet)
                     last_code.set(snippet.code)
@@ -125,6 +137,6 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
     def preview():
         df = get_current_df()
         req(df is not None)
-        return render.DataGrid(df.head(100), height="400px")
+        return render.DataGrid(round_df(df.head(100), state._decimals()), height="400px")
 
     code_panel_server("code", get_code=last_code)

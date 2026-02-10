@@ -86,12 +86,15 @@ def create_app(config: CourseConfig | None = None) -> App:
 
     def server(input, output, session):
         state = WorkbenchState()
+        state._change_signal = reactive.value(0)
 
         # Dataset selector
         selected_dataset = dataset_selector_server("ds", state=state)
 
         @reactive.calc
         def current_df():
+            # Re-read when datasets change
+            state._change_signal()
             name = selected_dataset()
             if not name or name not in state.datasets:
                 return None

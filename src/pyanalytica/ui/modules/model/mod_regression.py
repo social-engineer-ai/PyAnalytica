@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.regression import linear_regression
@@ -79,13 +80,13 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
     def coef_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(r.coefficients)
+        return render.DataGrid(round_df(r.coefficients, state._decimals()))
 
     @render.data_frame
     def vif_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(r.vif)
+        return render.DataGrid(round_df(r.vif, state._decimals()))
 
     @render.plot
     def resid_plot():

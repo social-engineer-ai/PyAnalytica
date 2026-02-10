@@ -9,7 +9,7 @@ from pyanalytica.core.state import WorkbenchState
 
 @module.ui
 def dataset_selector_ui():
-    """Dataset selector dropdown for the navbar."""
+    """Dataset selector dropdown and decimals control for the navbar."""
     return ui.div(
         ui.input_select(
             "dataset",
@@ -17,7 +17,14 @@ def dataset_selector_ui():
             choices=["(none)"],
             width="250px",
         ),
-        class_="d-flex align-items-center gap-2",
+        ui.input_select(
+            "decimals",
+            "Decimals:",
+            choices={"2": "2", "3": "3", "4": "4", "5": "5", "6": "6"},
+            selected="4",
+            width="80px",
+        ),
+        class_="d-flex align-items-center gap-3",
     )
 
 
@@ -27,6 +34,9 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
 
     @reactive.effect
     def _update_choices():
+        # Read the change signal to create a reactive dependency
+        if state._change_signal is not None:
+            state._change_signal()
         names = state.dataset_names()
         choices = names if names else ["(none)"]
         ui.update_select("dataset", choices=choices)
@@ -37,5 +47,8 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
         if name == "(none)" or not name:
             return ""
         return name
+
+    # Attach decimals accessor to state so all modules can use it
+    state._decimals = lambda: int(input.decimals())
 
     return selected_name

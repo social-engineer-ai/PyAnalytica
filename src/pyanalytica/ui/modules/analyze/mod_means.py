@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
@@ -32,7 +33,7 @@ def means_ui():
 @module.server
 def means_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    test_result = reactive.value(None)
+    test_result_val = reactive.value(None)
 
     @reactive.effect
     def _update_cols():
@@ -69,7 +70,7 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
                 result = one_way_anova(df, col, input.group_col())
             else:
                 return
-            test_result.set(result)
+            test_result_val.set(result)
             state.codegen.record(result.code)
             last_code.set(result.code.code)
         except Exception as e:
@@ -77,7 +78,7 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
 
     @render.ui
     def test_result():
-        r = test_result()
+        r = test_result_val()
         req(r is not None)
         sig_class = "alert-success" if r.p_value < 0.05 else "alert-warning"
         return ui.div(
@@ -90,13 +91,13 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
 
     @render.data_frame
     def group_stats():
-        r = test_result()
+        r = test_result_val()
         req(r is not None)
-        return render.DataGrid(r.group_stats)
+        return render.DataGrid(round_df(r.group_stats, state._decimals()))
 
     @render.ui
     def assumptions():
-        r = test_result()
+        r = test_result_val()
         req(r is not None)
         checks = r.assumption_checks
         if not checks:

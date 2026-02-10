@@ -34,6 +34,14 @@ class WorkbenchState:
         self._history_stack: list[tuple[str, pd.DataFrame]] = []  # For undo
         self.history: list[Operation] = []
         self.codegen: CodeGenerator = CodeGenerator()
+        self._change_signal = None  # Set externally by UI layer (shiny reactive.value)
+        self._change_counter = 0
+
+    def _notify(self) -> None:
+        """Bump the reactive change signal if one is attached."""
+        if self._change_signal is not None:
+            self._change_counter += 1
+            self._change_signal.set(self._change_counter)
 
     def load(self, name: str, df: pd.DataFrame) -> None:
         """Load a new dataset into the store."""
@@ -46,6 +54,7 @@ class WorkbenchState:
             dataset=name,
             details={"rows": df.shape[0], "cols": df.shape[1]},
         ))
+        self._notify()
 
     def get(self, name: str) -> pd.DataFrame:
         """Get a dataset by name. Raises KeyError if not found."""
@@ -59,6 +68,7 @@ class WorkbenchState:
             self._history_stack.append((name, self.datasets[name].copy()))
         self.datasets[name] = df
         self.history.append(operation)
+        self._notify()
 
     def undo(self) -> str | None:
         """Undo the last operation. Returns the dataset name that was restored, or None."""
@@ -72,6 +82,7 @@ class WorkbenchState:
             description=f"Undid last operation on '{name}'",
             dataset=name,
         ))
+        self._notify()
         return name
 
     def reset(self, name: str) -> None:
@@ -88,6 +99,7 @@ class WorkbenchState:
             description=f"Reset '{name}' to original state",
             dataset=name,
         ))
+        self._notify()
 
     def dataset_names(self) -> list[str]:
         """Return sorted list of loaded dataset names."""
@@ -100,6 +112,7 @@ class WorkbenchState:
         self._history_stack = [
             (n, df) for n, df in self._history_stack if n != name
         ]
+        self._notify()
 
     def has(self, name: str) -> bool:
         """Check if a dataset exists."""
