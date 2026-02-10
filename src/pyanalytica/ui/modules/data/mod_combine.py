@@ -37,6 +37,9 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
 
     @reactive.effect
     def _update_datasets():
+        # Read change signal to re-fire when datasets are added/removed
+        if state._change_signal is not None:
+            state._change_signal()
         names = state.dataset_names()
         ui.update_select("left", choices=names)
         ui.update_select("right", choices=names)
