@@ -19,6 +19,9 @@ from pyanalytica.ui.modules.analyze import mod_correlation, mod_means, mod_propo
 from pyanalytica.ui.modules.model import (
     mod_classify, mod_cluster, mod_evaluate, mod_reduce, mod_regression,
 )
+from pyanalytica.ui.modules.homework import mod_homework
+from pyanalytica.ui.modules.report import mod_notebook
+from pyanalytica.ui.modules.ai import mod_assistant
 
 
 def create_app(config: CourseConfig | None = None) -> App:
@@ -76,6 +79,12 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Reduce", mod_reduce.reduce_ui("reduce")),
             ),
         ),
+        # === HOMEWORK ===
+        ui.nav_panel("Homework", mod_homework.homework_ui("homework")),
+        # === REPORT ===
+        ui.nav_panel("Report", mod_notebook.notebook_ui("report")),
+        # === AI ASSISTANT ===
+        ui.nav_panel("AI Assistant", mod_assistant.assistant_ui("assistant")),
         header=ui.div(
             dataset_selector_ui("ds"),
             class_="container-fluid py-2",
@@ -131,6 +140,15 @@ def create_app(config: CourseConfig | None = None) -> App:
         mod_evaluate.evaluate_server("evaluate", state=state, get_current_df=current_df)
         mod_cluster.cluster_server("cluster", state=state, get_current_df=current_df)
         mod_reduce.reduce_server("reduce", state=state, get_current_df=current_df)
+
+        # Homework module
+        mod_homework.homework_server("homework", state=state, get_current_df=current_df)
+
+        # Report module
+        mod_notebook.notebook_server("report", state=state, get_current_df=current_df)
+
+        # AI Assistant module
+        mod_assistant.assistant_server("assistant", state=state, get_current_df=current_df)
 
     return App(app_ui, server)
 
