@@ -106,22 +106,25 @@ from pyanalytica.core.codegen import CodeSnippet
 
 ```bash
 # Core package (Shiny UI + all analytics)
-pip install pyanalytica
+pip install git+https://github.com/social-engineer-ai/PyAnalytica.git
 
 # With AI integration (Anthropic Claude)
-pip install pyanalytica[ai]
+pip install "pyanalytica[ai] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
 
 # With Jupyter notebook export
-pip install pyanalytica[report]
+pip install "pyanalytica[report] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
 
 # Everything
-pip install pyanalytica[all]
-
-# Development and testing
-pip install pyanalytica[dev]
+pip install "pyanalytica[all] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
 ```
 
-### Install from source
+To update to the latest version:
+
+```bash
+pip install --upgrade git+https://github.com/social-engineer-ai/PyAnalytica.git
+```
+
+### Install from source (for development)
 
 ```bash
 git clone https://github.com/social-engineer-ai/PyAnalytica.git
