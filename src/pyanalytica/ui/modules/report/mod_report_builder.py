@@ -44,7 +44,6 @@ def _badge_html(label: str, bg: str, fg: str) -> str:
 
 
 def _code_block_html(code: str, imports: list[str]) -> str:
-    """Render a dark-themed code block with imports and line numbers."""
     lines: list[str] = []
     if imports:
         for imp in sorted(set(imports)):
@@ -73,7 +72,6 @@ def _code_block_html(code: str, imports: list[str]) -> str:
 
 
 def _insert_button_html(after_id: str, cmd_id: str) -> str:
-    """Circular '+' button between cells to insert a markdown cell."""
     js = (
         f"Shiny.setInputValue('{cmd_id}', "
         f"'insert_after:{after_id}:' + Date.now())"
@@ -91,7 +89,6 @@ def _insert_button_html(after_id: str, cmd_id: str) -> str:
 
 
 def _cell_card_html(c, cmd_id: str, md_update_id: str, total: int) -> str:
-    """Build the full HTML for one cell card."""
     enabled = c.enabled
     opacity = "1" if enabled else "0.5"
     border_color = "#4CAF50" if enabled else "#bdbdbd"
@@ -124,7 +121,6 @@ def _cell_card_html(c, cmd_id: str, md_update_id: str, total: int) -> str:
 
     if c.cell_type == CellType.MARKDOWN:
         type_badge = _badge_html("MARKDOWN", "#e8f5e9", "#2e7d32")
-        # Editable textarea
         js_md = (
             f"Shiny.setInputValue('{md_update_id}', "
             f"JSON.stringify({{id:'{c.id}', markdown:this.value}}))"
@@ -152,6 +148,15 @@ def _cell_card_html(c, cmd_id: str, md_update_id: str, total: int) -> str:
             f'<p style="{desc_style}">{_esc(c.description)}</p>'
             f'{_code_block_html(c.code, c.imports)}'
         )
+        # Append execution output if present
+        if c.output_html:
+            content += (
+                f'<div style="border-top:1px solid #e0e0e0;margin-top:6px;padding-top:6px;">'
+                f'<span style="font-size:0.72rem;color:#888;text-transform:uppercase;'
+                f'letter-spacing:0.04em;">Output</span>'
+                f'{c.output_html}'
+                f'</div>'
+            )
 
     return (
         f'<div style="border:1px solid #e0e0e0;border-left:4px solid {border_color};'
@@ -170,55 +175,46 @@ def _cell_card_html(c, cmd_id: str, md_update_id: str, total: int) -> str:
 
 @module.ui
 def report_builder_ui():
-    return ui.layout_sidebar(
-        ui.sidebar(
-            ui.input_text("rpt_title", "Report Title", value="PyAnalytica Report"),
-            ui.input_text("rpt_author", "Author", placeholder="Your name"),
-            ui.tags.hr(),
-            ui.input_action_button(
-                "import_proc", "Import from Procedure",
-                class_="btn-primary w-100",
+    return ui.div(
+        # --- Top toolbar: two compact rows ---
+        ui.div(
+            ui.row(
+                ui.column(3, ui.input_text("rpt_title", None, value="PyAnalytica Report", placeholder="Report Title")),
+                ui.column(2, ui.input_text("rpt_author", None, placeholder="Author")),
+                ui.column(
+                    7,
+                    ui.div(
+                        ui.input_action_button("import_proc", "Import from Procedure", class_="btn-primary btn-sm"),
+                        ui.input_action_button("run_all", "Run All Cells", class_="btn-success btn-sm"),
+                        ui.input_action_button("add_title_cell", "Add Title", class_="btn-outline-secondary btn-sm"),
+                        ui.input_action_button("add_text_cell", "Add Text", class_="btn-outline-secondary btn-sm"),
+                        ui.input_action_button("clear_report", "Clear", class_="btn-outline-danger btn-sm"),
+                        class_="d-flex align-items-center gap-2 flex-wrap mt-1",
+                    ),
+                ),
             ),
-            ui.input_action_button(
-                "add_title_cell", "Add Title Cell",
-                class_="btn-outline-secondary w-100 mt-1",
+            ui.row(
+                ui.column(
+                    12,
+                    ui.div(
+                        ui.input_switch("show_code", "Show Code", value=True),
+                        ui.download_button("dl_html", "HTML", class_="btn-outline-secondary btn-sm"),
+                        ui.download_button("dl_jupyter", "Jupyter", class_="btn-outline-secondary btn-sm"),
+                        ui.download_button("dl_json", "JSON", class_="btn-outline-secondary btn-sm"),
+                        ui.input_file("import_json", None, accept=[".json"], button_label="Load Report"),
+                        class_="d-flex align-items-center gap-2 flex-wrap mt-1",
+                    ),
+                ),
             ),
-            ui.input_action_button(
-                "add_text_cell", "Add Text Cell at End",
-                class_="btn-outline-secondary w-100 mt-1",
-            ),
-            ui.input_action_button(
-                "clear_report", "Clear All Cells",
-                class_="btn-outline-danger w-100 mt-1",
-            ),
-            ui.tags.hr(),
-            ui.input_switch("show_code", "Show Code in Preview", value=True),
-            ui.tags.hr(),
-            ui.h6("Download"),
-            ui.download_button(
-                "dl_html", "Download HTML",
-                class_="btn-outline-secondary w-100 mt-1",
-            ),
-            ui.download_button(
-                "dl_jupyter", "Download Jupyter",
-                class_="btn-outline-secondary w-100 mt-1",
-            ),
-            ui.download_button(
-                "dl_json", "Download JSON",
-                class_="btn-outline-secondary w-100 mt-1",
-            ),
-            ui.tags.hr(),
-            ui.h6("Load Report"),
-            ui.input_file("import_json", "Load Report (JSON)", accept=[".json"]),
-            width=260,
+            class_="border-bottom pb-2 mb-2",
         ),
-        # Tabs give each panel full content width (no cramping)
+        # --- Full-width tabs: Editor / Preview ---
         ui.navset_tab(
             ui.nav_panel(
                 "Editor",
                 ui.div(
                     ui.output_ui("cell_editor"),
-                    style="max-height:80vh;overflow-y:auto;padding-top:8px;",
+                    style="max-height:75vh;overflow-y:auto;padding-top:8px;",
                 ),
             ),
             ui.nav_panel(
@@ -226,10 +222,10 @@ def report_builder_ui():
                 ui.div(
                     ui.input_action_button(
                         "refresh_preview", "Refresh Preview",
-                        class_="btn-outline-info btn-sm mb-2",
+                        class_="btn-outline-info btn-sm mb-2 mt-2",
                     ),
                     ui.output_ui("preview_panel"),
-                    style="max-height:80vh;overflow-y:auto;padding-top:8px;",
+                    style="max-height:75vh;overflow-y:auto;",
                 ),
             ),
         ),
@@ -279,6 +275,23 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
         ui.notification_show(f"Imported {count} code cells from procedure.", type="message")
         _bump_all()
 
+    # --- Run All Cells ---
+    @reactive.effect
+    @reactive.event(input.run_all)
+    def _run_all():
+        if builder.cell_count() == 0:
+            ui.notification_show("No cells to run.", type="warning")
+            return
+        df = get_current_df()
+        messages = builder.execute_all(df)
+        ok = sum(1 for m in messages if "OK" in m)
+        err = sum(1 for m in messages if "Error" in m)
+        summary = f"Executed {ok + err} cells: {ok} OK"
+        if err:
+            summary += f", {err} errors"
+        ui.notification_show(summary, type="message" if err == 0 else "warning")
+        _bump_all()
+
     # --- Add cells ---
     @reactive.effect
     @reactive.event(input.add_title_cell)
@@ -320,9 +333,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
             builder.move_cell(cell_id, "down")
         elif action == "insert_after":
             if cell_id == "__top__":
-                # Insert at the very beginning
                 cell = builder.add_markdown_cell(markdown="")
-                # Move it to position 0
                 while True:
                     idx = builder._find_index(cell.id)
                     if idx is None or idx == 0:
@@ -332,7 +343,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
                 builder.add_markdown_cell(after_cell_id=cell_id, markdown="")
         _bump_all()
 
-    # --- Markdown update (from textarea onchange) ---
+    # --- Markdown update ---
     @reactive.effect
     @reactive.event(input._md_update)
     def _handle_md_update():
@@ -342,7 +353,6 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
         try:
             data = json.loads(raw)
             builder.update_markdown(data["id"], data["markdown"])
-            # Don't bump editor refresh (would lose cursor), only preview on manual button
         except (json.JSONDecodeError, KeyError):
             pass
 
@@ -390,10 +400,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
 
         total = len(cells)
         parts: list[ui.TagChild] = []
-
-        # Insert button before first cell
         parts.append(ui.HTML(_insert_button_html("__top__", cell_cmd_id)))
-
         for c in cells:
             parts.append(ui.HTML(_cell_card_html(c, cell_cmd_id, md_update_id, total)))
             parts.append(ui.HTML(_insert_button_html(c.id, cell_cmd_id)))
@@ -419,7 +426,6 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
             )
 
         html_content = export_report_html(builder, show_code=show_code)
-        # Use iframe with srcdoc to isolate CSS from app theme
         escaped_html = html_content.replace("&", "&amp;").replace('"', "&quot;")
         iframe = (
             f'<iframe srcdoc="{escaped_html}" '

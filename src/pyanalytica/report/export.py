@@ -415,6 +415,24 @@ def export_report_html(builder, show_code: bool = True) -> str:
     .md-cell h3 { font-size: 1.1rem; color: #303f9f; margin-bottom: 0.3rem; }
     .md-cell p { margin-bottom: 0.5rem; }
     .md-cell em { color: #616161; }
+    .output-summary {
+        margin-top: 0.5rem;
+        padding: 0.5rem 0;
+    }
+    .output-summary img { max-width: 100%; border-radius: 4px; }
+    .output-summary table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        margin: 0.5rem 0;
+    }
+    .output-summary th, .output-summary td {
+        padding: 4px 8px;
+        border: 1px solid #e0e0e0;
+        text-align: left;
+    }
+    .output-summary th { background: #f5f5f5; font-weight: 600; }
+    .output-summary tr:nth-child(even) { background: #fafafa; }
     footer {
         text-align: center; margin-top: 2rem;
         font-size: 0.8rem; color: #bdbdbd;
@@ -449,6 +467,8 @@ def export_report_html(builder, show_code: bool = True) -> str:
                     code_lines.append("")
                 code_lines.extend(cell.code.split("\n"))
                 card += f'  <pre><code>{_escape(chr(10).join(code_lines))}</code></pre>'
+            if cell.output_html:
+                card += f'  <div class="output-summary">{cell.output_html}</div>'
             card += '</div>'
             cards.append(card)
 

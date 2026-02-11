@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import base64
+import html as html_mod
+import io
 import json
+import sys
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import pandas as pd
     from pyanalytica.core.procedure import ProcedureRecorder
 
 
@@ -32,6 +37,8 @@ class ReportCell:
     imports: list[str] = field(default_factory=list)
     # Markdown cell fields
     markdown: str = ""
+    # Execution output (HTML fragment)
+    output_html: str = ""
 
 
 class ReportBuilder:
@@ -133,6 +140,117 @@ class ReportBuilder:
             if c.id == cell_id:
                 return i
         return None
+
+    # --- Code execution ---
+
+    def execute_all(self, df: pd.DataFrame | None = None) -> list[str]:
+        """Execute all enabled code cells in order, capturing output.
+
+        Parameters
+        ----------
+        df : DataFrame or None
+            The current dataset, made available as ``df`` in the code.
+
+        Returns
+        -------
+        list[str]
+            A message per executed cell (success or error).
+        """
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as _pd
+
+        namespace: dict = {
+            "pd": _pd,
+            "np": np,
+            "plt": plt,
+        }
+        # Provide the current dataframe
+        if df is not None:
+            namespace["df"] = df.copy()
+
+        messages: list[str] = []
+
+        for cell in self._cells:
+            if not cell.enabled or cell.cell_type != CellType.CODE:
+                continue
+
+            # Execute imports
+            for imp in cell.imports:
+                try:
+                    exec(imp, namespace)  # noqa: S102
+                except Exception:
+                    pass
+
+            # Capture stdout
+            old_stdout = sys.stdout
+            sys.stdout = buffer = io.StringIO()
+            plt.close("all")
+
+            try:
+                exec(cell.code, namespace)  # noqa: S102
+
+                stdout_text = buffer.getvalue()
+                parts: list[str] = []
+
+                # Stdout output
+                if stdout_text.strip():
+                    parts.append(
+                        f'<pre style="background:#f5f5f5;border-left:3px solid #90caf9;'
+                        f'padding:8px 12px;font-size:0.82rem;overflow-x:auto;'
+                        f'margin:4px 0;border-radius:0 4px 4px 0;">'
+                        f'{html_mod.escape(stdout_text)}</pre>'
+                    )
+
+                # Check for result DataFrame
+                if "result" in namespace and isinstance(namespace["result"], _pd.DataFrame):
+                    result_df = namespace["result"]
+                    nrows = len(result_df)
+                    tbl = result_df.head(15).to_html(
+                        classes="table table-sm table-striped",
+                        max_rows=15,
+                        border=0,
+                    )
+                    if nrows > 15:
+                        tbl += f'<p style="color:#999;font-size:0.8rem;">Showing 15 of {nrows} rows</p>'
+                    parts.append(tbl)
+
+                # Check for matplotlib figures
+                for fig_num in plt.get_fignums():
+                    fig = plt.figure(fig_num)
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+                    buf.seek(0)
+                    b64 = base64.b64encode(buf.read()).decode()
+                    parts.append(
+                        f'<img src="data:image/png;base64,{b64}" '
+                        f'style="max-width:100%;margin:4px 0;border-radius:4px;">'
+                    )
+                    plt.close(fig)
+
+                if parts:
+                    cell.output_html = "\n".join(parts)
+                else:
+                    cell.output_html = (
+                        '<span style="color:#4CAF50;font-size:0.82rem;">'
+                        'Executed successfully (no output)</span>'
+                    )
+                messages.append(f"Cell {cell.order}: OK")
+
+            except Exception as e:
+                cell.output_html = (
+                    f'<pre style="background:#fff3e0;border-left:3px solid #e53935;'
+                    f'padding:8px 12px;font-size:0.82rem;color:#c62828;'
+                    f'margin:4px 0;border-radius:0 4px 4px 0;">'
+                    f'{type(e).__name__}: {html_mod.escape(str(e))}</pre>'
+                )
+                messages.append(f"Cell {cell.order}: Error - {e}")
+            finally:
+                sys.stdout = old_stdout
+
+        return messages
 
     # --- Serialization ---
 

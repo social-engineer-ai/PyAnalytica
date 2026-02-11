@@ -239,3 +239,94 @@ class TestExportReportJupyter:
         nb = json.loads(nb_json)
         md_cells = [c for c in nb["cells"] if c["cell_type"] == "markdown"]
         assert len(md_cells) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Code execution
+# ---------------------------------------------------------------------------
+
+class TestExecuteAll:
+    def test_execute_simple_code(self, builder):
+        import pandas as pd
+        df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='result = df.describe()',
+            imports=["import pandas as pd"],
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        msgs = builder.execute_all(df)
+        assert len(msgs) == 1
+        assert "OK" in msgs[0]
+        assert cell.output_html  # Should have table output
+
+    def test_execute_with_print(self, builder):
+        import pandas as pd
+        df = pd.DataFrame({"x": [1]})
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='print("hello world")',
+            imports=[],
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        msgs = builder.execute_all(df)
+        assert "OK" in msgs[0]
+        assert "hello world" in cell.output_html
+
+    def test_execute_error_captured(self, builder):
+        import pandas as pd
+        df = pd.DataFrame({"x": [1]})
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='1 / 0',
+            imports=[],
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        msgs = builder.execute_all(df)
+        assert "Error" in msgs[0]
+        assert "ZeroDivisionError" in cell.output_html
+
+    def test_execute_skips_disabled(self, builder):
+        import pandas as pd
+        df = pd.DataFrame({"x": [1]})
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='print("should not run")',
+            enabled=False,
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        msgs = builder.execute_all(df)
+        assert len(msgs) == 0
+        assert cell.output_html == ""
+
+    def test_execute_none_df(self, builder):
+        """Should work even if no dataframe is provided."""
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='result = pd.DataFrame({"a": [1, 2]})',
+            imports=["import pandas as pd"],
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        msgs = builder.execute_all(None)
+        assert "OK" in msgs[0]
+
+    def test_output_in_html_export(self, builder):
+        import pandas as pd
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        cell = ReportCell(
+            cell_type=CellType.CODE,
+            code='print("test output")',
+            imports=[],
+            action="test",
+            description="Test cell",
+        )
+        builder._cells.append(cell)
+        builder._renumber()
+        builder.execute_all(df)
+        html = export_report_html(builder)
+        assert "test output" in html
