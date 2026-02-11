@@ -109,7 +109,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                     ui.input_text("session_name", "", placeholder="Session name", width="150px"),
                     ui.input_action_button("save_session", "Save", class_="btn-sm btn-outline-primary"),
                     ui.input_select("load_session", "Session:", choices=["(none)"], width="150px"),
-                    ui.input_action_button("restore_session", "Load", class_="btn-sm btn-outline-secondary"),
+                    ui.input_action_button("restore_session", "Load", class_="btn-sm btn-outline-primary"),
                     class_="d-flex align-items-center gap-2",
                 ),
                 class_="d-flex align-items-center gap-4 flex-wrap",

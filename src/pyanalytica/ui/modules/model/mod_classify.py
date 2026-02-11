@@ -98,6 +98,7 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
                     y_test=r.y_test,
                 )
                 state.model_store.save(model_name, artifact)
+                state._notify()
                 ui.notification_show(f"Model '{model_name}' saved.", type="message")
 
             # Save train/test splits as datasets
