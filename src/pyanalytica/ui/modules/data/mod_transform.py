@@ -8,6 +8,7 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data import transform
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 
 from datetime import datetime
 
@@ -34,6 +35,7 @@ def transform_ui():
             width=320,
         ),
         ui.output_text("transform_info"),
+        decimals_ui("dec"),
         ui.output_data_frame("preview"),
         code_panel_ui("code"),
     )
@@ -42,6 +44,7 @@ def transform_ui():
 @module.server
 def transform_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    get_dec = decimals_server("dec")
 
     @render.ui
     def action_controls():
@@ -85,6 +88,13 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
                 if action == "fill_missing":
                     method = input.fill_method()
                     val = input.fill_value() if method == "value" else None
+                    n_missing = df[col].isna().sum()
+                    if n_missing == 0:
+                        ui.notification_show(
+                            f"Column '{col}' has no missing values. Nothing to fill.",
+                            type="warning",
+                        )
+                        return
                     result, snippet = transform.fill_missing(df, col, method, val)
                 elif action == "drop_missing":
                     result, snippet = transform.drop_missing(df, [col])
@@ -131,12 +141,13 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         df = get_current_df()
         if df is None:
             return "No dataset selected."
-        return f"{df.shape[0]} rows × {df.shape[1]} columns"
+        n_missing = df.isna().sum().sum()
+        return f"{df.shape[0]} rows × {df.shape[1]} columns | {n_missing} missing values"
 
     @render.data_frame
     def preview():
         df = get_current_df()
         req(df is not None)
-        return render.DataGrid(round_df(df.head(100), state._decimals()), height="400px")
+        return render.DataGrid(round_df(df.head(100), get_dec()), height="400px")
 
     code_panel_server("code", get_code=last_code)

@@ -17,8 +17,9 @@ Usage:
 
 from __future__ import annotations
 
-import os
 from typing import Any
+
+from pyanalytica.core.profile import get_api_key
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +32,7 @@ def _try_llm(prompt: str) -> str | None:
     Returns the response text on success, or ``None`` if the anthropic
     package is not installed or the API key is not configured.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    api_key = get_api_key()
     if not api_key:
         return None
     try:

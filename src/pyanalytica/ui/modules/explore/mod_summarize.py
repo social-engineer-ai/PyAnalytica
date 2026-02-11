@@ -9,6 +9,8 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.explore.summarize import group_summarize
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -26,7 +28,9 @@ def summarize_ui():
             ui.input_action_button("run_btn", "Summarize", class_="btn-primary w-100 mt-2"),
             width=300,
         ),
+        decimals_ui("dec"),
         ui.output_data_frame("summary_table"),
+        download_result_ui("dl"),
         code_panel_ui("code"),
     )
 
@@ -34,6 +38,7 @@ def summarize_ui():
 @module.server
 def summarize_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_cols():
@@ -61,6 +66,7 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
     def summary_table():
         df = result()
         req(df is not None)
-        return render.DataGrid(round_df(df, state._decimals()), height="500px")
+        return render.DataGrid(round_df(df, get_dec()), height="500px")
 
+    download_result_server("dl", get_df=result, filename="summary")
     code_panel_server("code", get_code=last_code)

@@ -7,6 +7,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.data.profile import profile_dataframe
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 
 
 @module.ui
@@ -20,13 +21,14 @@ def profile_ui():
         ui.navset_tab(
             ui.nav_panel("Overview", ui.output_ui("overview")),
             ui.nav_panel("Quality", ui.output_ui("quality")),
-            ui.nav_panel("Columns", ui.output_data_frame("column_details")),
+            ui.nav_panel("Columns", decimals_ui("dec"), ui.output_data_frame("column_details")),
         ),
     )
 
 
 @module.server
 def profile_server(input, output, session, state: WorkbenchState, get_current_df):
+    get_dec = decimals_server("dec")
 
     @reactive.calc
     def profile():
@@ -102,4 +104,4 @@ def profile_server(input, output, session, state: WorkbenchState, get_current_df
                 "Std": cp.std, "Min": cp.min_val, "Max": cp.max_val,
             }
             data.append(row)
-        return render.DataGrid(round_df(pd.DataFrame(data), state._decimals()), height="500px")
+        return render.DataGrid(round_df(pd.DataFrame(data), get_dec()), height="500px")

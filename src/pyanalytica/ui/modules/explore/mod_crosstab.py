@@ -9,6 +9,8 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.explore.crosstab import create_crosstab
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -24,7 +26,9 @@ def crosstab_ui():
             width=300,
         ),
         ui.output_ui("chi2_result"),
+        decimals_ui("dec"),
         ui.output_data_frame("crosstab_table"),
+        download_result_ui("dl"),
         code_panel_ui("code"),
     )
 
@@ -32,6 +36,7 @@ def crosstab_ui():
 @module.server
 def crosstab_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_cols():
@@ -76,6 +81,7 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
     def crosstab_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(round_df(r.table.reset_index(), state._decimals()), height="400px")
+        return render.DataGrid(round_df(r.table.reset_index(), get_dec()), height="400px")
 
+    download_result_server("dl", get_df=lambda: result().table.reset_index(), filename="crosstab")
     code_panel_server("code", get_code=last_code)

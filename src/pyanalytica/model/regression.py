@@ -32,6 +32,12 @@ class RegressionResult:
     interpretation: str = ""
     predictions: pd.Series | None = None
     code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+    model: object | None = None
+    feature_names: list[str] = field(default_factory=list)
+    X_train: pd.DataFrame | None = None
+    X_test: pd.DataFrame | None = None
+    y_train: pd.Series | None = None
+    y_test: pd.Series | None = None
 
 
 def linear_regression(
@@ -39,6 +45,7 @@ def linear_regression(
     target: str,
     features: list[str],
     test_size: float | None = None,
+    random_state: int = 42,
 ) -> RegressionResult:
     """Fit a linear regression and return comprehensive results."""
     clean = df[[target] + features].dropna()
@@ -46,10 +53,14 @@ def linear_regression(
     y = clean[target]
 
     predictions = None
+    X_test_out = None
+    y_test_out = None
     if test_size and test_size > 0:
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=42
+            X, y, test_size=test_size, random_state=random_state
         )
+        X_test_out = X_test
+        y_test_out = y_test
         model = LinearRegression()
         model.fit(X_train, y_train)
         predictions = pd.Series(model.predict(X_test), index=X_test.index)
@@ -149,7 +160,7 @@ def linear_regression(
         f'y = df["{target}"].loc[X.index]\n'
     )
     if test_size:
-        code += f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state=42)\n'
+        code += f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state={random_state})\n'
         code += f'model = LinearRegression().fit(X_train, y_train)\n'
         code += f'print(f"R² = {{model.score(X_test, y_test):.3f}}")'
     else:
@@ -175,4 +186,10 @@ def linear_regression(
                 "from sklearn.model_selection import train_test_split",
             ],
         ),
+        model=model,
+        feature_names=features,
+        X_train=X_train,
+        X_test=X_test_out,
+        y_train=y_train,
+        y_test=y_test_out,
     )

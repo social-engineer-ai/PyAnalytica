@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from shiny import App, reactive, render, ui
 
 from pyanalytica.core.config import CourseConfig, is_menu_visible, load_config
+from pyanalytica.core.session import delete_session, list_sessions, load_session, save_session
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.theme import apply_theme, get_theme
 from pyanalytica.ui.components.dataset_selector import dataset_selector_server, dataset_selector_ui
@@ -17,10 +20,10 @@ from pyanalytica.ui.modules.visualize import (
 )
 from pyanalytica.ui.modules.analyze import mod_correlation, mod_means, mod_proportions
 from pyanalytica.ui.modules.model import (
-    mod_classify, mod_cluster, mod_evaluate, mod_reduce, mod_regression,
+    mod_classify, mod_cluster, mod_evaluate, mod_predict, mod_reduce, mod_regression,
 )
 from pyanalytica.ui.modules.homework import mod_homework
-from pyanalytica.ui.modules.report import mod_notebook
+from pyanalytica.ui.modules.report import mod_notebook, mod_procedure
 from pyanalytica.ui.modules.ai import mod_assistant
 
 
@@ -32,6 +35,14 @@ def create_app(config: CourseConfig | None = None) -> App:
     apply_theme(get_theme(config.theme))
 
     app_ui = ui.page_navbar(
+        ui.head_content(
+            ui.HTML(
+                '<link rel="preconnect" href="https://fonts.googleapis.com">'
+                '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+                '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">'
+                '<link rel="stylesheet" href="style.css">'
+            ),
+        ),
         # === DATA ===
         ui.nav_panel("Data",
             ui.navset_tab(
@@ -46,7 +57,7 @@ def create_app(config: CourseConfig | None = None) -> App:
         # === EXPLORE ===
         ui.nav_panel("Explore",
             ui.navset_tab(
-                ui.nav_panel("Summarize", mod_summarize.summarize_ui("summarize")),
+                ui.nav_panel("Group By / Summarize", mod_summarize.summarize_ui("summarize")),
                 ui.nav_panel("Pivot", mod_pivot.pivot_ui("pivot")),
                 ui.nav_panel("Cross-tab", mod_crosstab.crosstab_ui("crosstab")),
             ),
@@ -75,6 +86,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Regression", mod_regression.regression_ui("regression")),
                 ui.nav_panel("Classify", mod_classify.classify_ui("classify")),
                 ui.nav_panel("Evaluate", mod_evaluate.evaluate_ui("evaluate")),
+                ui.nav_panel("Predict", mod_predict.predict_ui("predict")),
                 ui.nav_panel("Cluster", mod_cluster.cluster_ui("cluster")),
                 ui.nav_panel("Reduce", mod_reduce.reduce_ui("reduce")),
             ),
@@ -82,20 +94,49 @@ def create_app(config: CourseConfig | None = None) -> App:
         # === HOMEWORK ===
         ui.nav_panel("Homework", mod_homework.homework_ui("homework")),
         # === REPORT ===
-        ui.nav_panel("Report", mod_notebook.notebook_ui("report")),
+        ui.nav_panel("Report",
+            ui.navset_tab(
+                ui.nav_panel("Notebook", mod_notebook.notebook_ui("report")),
+                ui.nav_panel("Procedure", mod_procedure.procedure_ui("procedure")),
+            ),
+        ),
         # === AI ASSISTANT ===
         ui.nav_panel("AI Assistant", mod_assistant.assistant_ui("assistant")),
         header=ui.div(
-            dataset_selector_ui("ds"),
-            class_="container-fluid py-2",
+            ui.div(
+                dataset_selector_ui("ds"),
+                ui.div(
+                    ui.input_text("session_name", "", placeholder="Session name", width="150px"),
+                    ui.input_action_button("save_session", "Save", class_="btn-sm btn-outline-primary"),
+                    ui.input_select("load_session", "Session:", choices=["(none)"], width="150px"),
+                    ui.input_action_button("restore_session", "Load", class_="btn-sm btn-outline-secondary"),
+                    class_="d-flex align-items-center gap-2",
+                ),
+                class_="d-flex align-items-center gap-4 flex-wrap",
+            ),
+            class_="container-fluid pa-header-bar",
         ),
-        title="PyAnalytica",
+        title=ui.span(
+            ui.HTML(
+                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                '<rect x="3" y="12" width="4" height="9" rx="1" fill="white" opacity="0.7"/>'
+                '<rect x="10" y="7" width="4" height="14" rx="1" fill="white" opacity="0.85"/>'
+                '<rect x="17" y="3" width="4" height="18" rx="1" fill="white"/>'
+                '</svg>'
+            ),
+            "PyAnalytica",
+        ),
         id="main_nav",
     )
 
     def server(input, output, session):
         state = WorkbenchState()
         state._change_signal = reactive.value(0)
+
+        # Restore autosaved session on startup
+        if "autosave" in list_sessions():
+            load_session(state, "autosave")
+            state._notify()
 
         # Dataset selector
         selected_dataset = dataset_selector_server("ds", state=state)
@@ -138,19 +179,59 @@ def create_app(config: CourseConfig | None = None) -> App:
         mod_regression.regression_server("regression", state=state, get_current_df=current_df)
         mod_classify.classify_server("classify", state=state, get_current_df=current_df)
         mod_evaluate.evaluate_server("evaluate", state=state, get_current_df=current_df)
+        mod_predict.predict_server("predict", state=state, get_current_df=current_df)
         mod_cluster.cluster_server("cluster", state=state, get_current_df=current_df)
         mod_reduce.reduce_server("reduce", state=state, get_current_df=current_df)
 
         # Homework module
         mod_homework.homework_server("homework", state=state, get_current_df=current_df)
 
-        # Report module
+        # Report modules
         mod_notebook.notebook_server("report", state=state, get_current_df=current_df)
+        mod_procedure.procedure_server("procedure", state=state, get_current_df=current_df)
 
         # AI Assistant module
         mod_assistant.assistant_server("assistant", state=state, get_current_df=current_df)
 
-    return App(app_ui, server)
+        # --- Session persistence ---
+
+        @reactive.effect
+        def _auto_save():
+            state._change_signal()
+            if state.datasets:
+                save_session(state, "autosave")
+
+        def _refresh_session_choices():
+            names = list_sessions()
+            choices = [n for n in names if n != "autosave"] or ["(none)"]
+            ui.update_select("load_session", choices=choices)
+
+        @reactive.effect
+        @reactive.event(input.save_session)
+        def _save_session():
+            name = input.session_name().strip()
+            if not name:
+                ui.notification_show("Enter a session name first.", type="warning")
+                return
+            save_session(state, name)
+            _refresh_session_choices()
+            ui.notification_show(f"Session '{name}' saved.", type="message")
+
+        @reactive.effect
+        @reactive.event(input.restore_session)
+        def _restore_session():
+            name = input.load_session()
+            if not name or name == "(none)":
+                ui.notification_show("Select a session to load.", type="warning")
+                return
+            loaded = load_session(state, name)
+            state._notify()
+            ui.notification_show(f"Session '{name}' restored ({len(loaded)} datasets).", type="message")
+
+        # Populate session dropdown on startup
+        _refresh_session_choices()
+
+    return App(app_ui, server, static_assets_dir=str(Path(__file__).parent / "www"))
 
 
 app = create_app()

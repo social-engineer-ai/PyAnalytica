@@ -9,6 +9,7 @@ from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.load import load_bundled, load_csv, load_from_bytes, load_url
 from pyanalytica.datasets import list_datasets
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 
 from datetime import datetime
 
@@ -27,6 +28,7 @@ def load_ui():
         ),
         ui.h4("Preview"),
         ui.output_text("load_info"),
+        decimals_ui("dec"),
         ui.output_data_frame("preview_table"),
         code_panel_ui("code"),
     )
@@ -35,6 +37,7 @@ def load_ui():
 @module.server
 def load_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    get_dec = decimals_server("dec")
 
     @render.ui
     def source_controls():
@@ -92,6 +95,6 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
     def preview_table():
         df = get_current_df()
         req(df is not None)
-        return render.DataGrid(round_df(df.head(100), state._decimals()), height="400px")
+        return render.DataGrid(round_df(df.head(100), get_dec()), height="400px")
 
     code_panel_server("code", get_code=last_code)

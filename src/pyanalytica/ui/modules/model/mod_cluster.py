@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.cluster import hierarchical_cluster, kmeans_cluster
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -26,6 +27,7 @@ def cluster_ui():
         ui.output_plot("scatter_plot", height="350px"),
         ui.h5("Cluster Profiles"),
         ui.output_data_frame("profiles"),
+        download_result_ui("dl"),
         code_panel_ui("code"),
     )
 
@@ -87,4 +89,9 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
         req(r is not None)
         return render.DataGrid(r.cluster_profiles.reset_index())
 
+    download_result_server(
+        "dl",
+        get_df=lambda: result().cluster_profiles.reset_index(),
+        filename="cluster_profiles",
+    )
     code_panel_server("code", get_code=last_code)

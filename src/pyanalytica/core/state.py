@@ -8,7 +8,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from pyanalytica.core.codegen import CodeGenerator
+from pyanalytica.core.codegen import CodeGenerator, CodeSnippet
+from pyanalytica.core.model_store import ModelStore
+from pyanalytica.core.procedure import ProcedureRecorder
 
 
 @dataclass
@@ -34,8 +36,21 @@ class WorkbenchState:
         self._history_stack: list[tuple[str, pd.DataFrame]] = []  # For undo
         self.history: list[Operation] = []
         self.codegen: CodeGenerator = CodeGenerator()
+        self.model_store: ModelStore = ModelStore()
+        self.procedure_recorder: ProcedureRecorder = ProcedureRecorder()
+        self._decimals = lambda: 4  # Default; overridden per-module by UI
         self._change_signal = None  # Set externally by UI layer (shiny reactive.value)
         self._change_counter = 0
+
+        # Auto-forward codegen records to the procedure recorder
+        def _on_codegen_record(snippet: CodeSnippet) -> None:
+            if self.history:
+                last = self.history[-1]
+                self.procedure_recorder.record_step(last.action, last.description, snippet)
+            else:
+                self.procedure_recorder.record_step("unknown", "Recorded operation", snippet)
+
+        self.codegen.set_on_record(_on_codegen_record)
 
     def _notify(self) -> None:
         """Bump the reactive change signal if one is attached."""

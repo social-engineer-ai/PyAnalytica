@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Callable
 
 
 @dataclass
@@ -22,12 +23,19 @@ class CodeGenerator:
     def __init__(self) -> None:
         self.imports: set[str] = {"import pandas as pd"}
         self.snippets: list[CodeSnippet] = []
+        self._on_record: Callable[[CodeSnippet], None] | None = None
+
+    def set_on_record(self, callback: Callable[[CodeSnippet], None]) -> None:
+        """Set a callback invoked on every record() call (for procedure recording)."""
+        self._on_record = callback
 
     def record(self, snippet: CodeSnippet) -> None:
         """Record a code snippet and its imports."""
         for imp in snippet.imports:
             self.imports.add(imp)
         self.snippets.append(snippet)
+        if self._on_record is not None:
+            self._on_record(snippet)
 
     def export_script(self) -> str:
         """Export the full accumulated script as runnable Python."""

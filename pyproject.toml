@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyanalytica"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A Python analytics workbench for teaching data science"
 readme = "README.md"
 license = "MIT"
@@ -49,6 +49,12 @@ all = ["anthropic>=0.20", "nbformat>=5.9"]
 
 [project.scripts]
 pyanalytica = "pyanalytica.ui.app:main"
+
+[tool.hatch.version]
+path = "src/pyanalytica/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/pyanalytica/", "tests/", "README.md", "LICENSE", "pyproject.toml"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyanalytica"]

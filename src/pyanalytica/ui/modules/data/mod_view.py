@@ -8,6 +8,8 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 from datetime import datetime
 
@@ -32,7 +34,9 @@ def view_ui():
             width=300,
         ),
         ui.output_text("filter_info"),
+        decimals_ui("dec"),
         ui.output_data_frame("view_table"),
+        download_result_ui("dl"),
         code_panel_ui("code"),
     )
 
@@ -41,6 +45,7 @@ def view_ui():
 def view_server(input, output, session, state: WorkbenchState, get_current_df):
     filters = reactive.value([])
     last_code = reactive.value("")
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_cols():
@@ -94,7 +99,7 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
     def view_table():
         df = filtered_df()
         req(df is not None)
-        return render.DataGrid(round_df(df.head(500), state._decimals()), height="500px")
+        return render.DataGrid(round_df(df.head(500), get_dec()), height="500px")
 
     @reactive.effect
     @reactive.event(input.apply_btn)
@@ -110,4 +115,5 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
                 ui.notification_show(f"Filters applied to '{name}'", type="message")
                 break
 
+    download_result_server("dl", get_df=filtered_df, filename="filtered_data")
     code_panel_server("code", get_code=last_code)

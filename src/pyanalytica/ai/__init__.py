@@ -16,8 +16,9 @@ This package provides four AI-powered capabilities:
 
 Each module works in two modes:
 - **Rule-based** (always available): no API key or external packages needed.
-- **LLM-enhanced** (optional): when ``ANTHROPIC_API_KEY`` is set and the
-  ``anthropic`` package is installed, results are enriched with Claude.
+- **LLM-enhanced** (optional): set your API key in ``~/.pyanalytica/profile.yaml``
+  or the ``ANTHROPIC_API_KEY`` environment variable, and install the ``anthropic``
+  package. Results will then be enriched with Claude.
 
 Usage:
     from pyanalytica.ai import interpret_result, suggest_next_step

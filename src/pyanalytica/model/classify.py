@@ -28,6 +28,13 @@ class ClassificationResult:
     probabilities: pd.Series = field(default_factory=pd.Series)
     classes: list = field(default_factory=list)
     code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+    model: object | None = None
+    label_encoder: object | None = None
+    feature_names: list[str] = field(default_factory=list)
+    X_train: pd.DataFrame | None = None
+    X_test: pd.DataFrame | None = None
+    y_train: pd.Series | None = None
+    y_test: pd.Series | None = None
 
 
 def logistic_regression(
@@ -35,6 +42,7 @@ def logistic_regression(
     target: str,
     features: list[str],
     test_size: float = 0.3,
+    random_state: int = 42,
 ) -> ClassificationResult:
     """Fit logistic regression."""
     clean = df[[target] + features].dropna()
@@ -46,10 +54,10 @@ def logistic_regression(
     classes = le.classes_.tolist()
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=test_size, random_state=42
+        X, y_encoded, test_size=test_size, random_state=random_state
     )
 
-    model = LogisticRegression(max_iter=1000, random_state=42)
+    model = LogisticRegression(max_iter=1000, random_state=random_state)
     model.fit(X_train, y_train)
 
     train_acc = model.score(X_train, y_train)
@@ -88,8 +96,8 @@ def logistic_regression(
         f'from sklearn.preprocessing import LabelEncoder\n\n'
         f'X = df[{feats_str}].dropna()\n'
         f'y = LabelEncoder().fit_transform(df["{target}"].loc[X.index])\n'
-        f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state=42)\n'
-        f'model = LogisticRegression(max_iter=1000, random_state=42).fit(X_train, y_train)\n'
+        f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state={random_state})\n'
+        f'model = LogisticRegression(max_iter=1000, random_state={random_state}).fit(X_train, y_train)\n'
         f'print(f"Train accuracy: {{model.score(X_train, y_train):.3f}}")\n'
         f'print(f"Test accuracy: {{model.score(X_test, y_test):.3f}}")'
     )
@@ -110,6 +118,13 @@ def logistic_regression(
                 "from sklearn.preprocessing import LabelEncoder",
             ],
         ),
+        model=model,
+        label_encoder=le,
+        feature_names=features,
+        X_train=X_train,
+        X_test=X_test,
+        y_train=pd.Series(y_train, name=target),
+        y_test=pd.Series(y_test, name=target),
     )
 
 
@@ -119,6 +134,7 @@ def decision_tree(
     features: list[str],
     test_size: float = 0.3,
     max_depth: int = 5,
+    random_state: int = 42,
 ) -> ClassificationResult:
     """Fit a decision tree classifier."""
     clean = df[[target] + features].dropna()
@@ -130,10 +146,10 @@ def decision_tree(
     classes = le.classes_.tolist()
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=test_size, random_state=42
+        X, y_encoded, test_size=test_size, random_state=random_state
     )
 
-    model = DecisionTreeClassifier(max_depth=max_depth, random_state=42)
+    model = DecisionTreeClassifier(max_depth=max_depth, random_state=random_state)
     model.fit(X_train, y_train)
 
     train_acc = model.score(X_train, y_train)
@@ -159,8 +175,8 @@ def decision_tree(
         f'from sklearn.preprocessing import LabelEncoder\n\n'
         f'X = df[{feats_str}].dropna()\n'
         f'y = LabelEncoder().fit_transform(df["{target}"].loc[X.index])\n'
-        f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state=42)\n'
-        f'model = DecisionTreeClassifier(max_depth={max_depth}, random_state=42).fit(X_train, y_train)\n'
+        f'X_train, X_test, y_train, y_test = train_test_split(X, y, test_size={test_size}, random_state={random_state})\n'
+        f'model = DecisionTreeClassifier(max_depth={max_depth}, random_state={random_state}).fit(X_train, y_train)\n'
         f'print(f"Train accuracy: {{model.score(X_train, y_train):.3f}}")\n'
         f'print(f"Test accuracy: {{model.score(X_test, y_test):.3f}}")'
     )
@@ -181,4 +197,11 @@ def decision_tree(
                 "from sklearn.preprocessing import LabelEncoder",
             ],
         ),
+        model=model,
+        label_encoder=le,
+        feature_names=features,
+        X_train=X_train,
+        X_test=X_test,
+        y_train=pd.Series(y_train, name=target),
+        y_test=pd.Series(y_test, name=target),
     )

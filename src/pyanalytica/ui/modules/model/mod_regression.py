@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
+from pyanalytica.core.model_store import ModelArtifact
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.regression import linear_regression
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -18,11 +23,17 @@ def regression_ui():
             ui.input_select("target", "Target (Y)", choices=[]),
             ui.input_select("features", "Features (X)", choices=[], multiple=True),
             ui.input_slider("test_size", "Test Split", 0.0, 0.5, 0.0, step=0.05),
+            ui.input_numeric("random_seed", "Random Seed", value=42, min=0, max=99999),
+            ui.tags.hr(),
+            ui.input_text("model_name", "Save Model As", placeholder="my_regression"),
+            ui.input_checkbox("save_splits", "Save train/test as datasets", value=False),
             ui.input_action_button("run_btn", "Fit Model", class_="btn-primary w-100 mt-2"),
             width=300,
         ),
         ui.output_ui("model_summary"),
+        decimals_ui("dec"),
         ui.output_data_frame("coef_table"),
+        download_result_ui("dl"),
         ui.h5("VIF (Multicollinearity)"),
         ui.output_data_frame("vif_table"),
         ui.output_plot("resid_plot", height="350px"),
@@ -35,6 +46,7 @@ def regression_ui():
 def regression_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
     result = reactive.value(None)
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_cols():
@@ -54,10 +66,43 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
         req(target, features)
         try:
             test_size = input.test_size() if input.test_size() > 0 else None
-            r = linear_regression(df, target, features, test_size=test_size)
+            seed = int(input.random_seed()) if input.random_seed() is not None else 42
+            r = linear_regression(df, target, features, test_size=test_size, random_state=seed)
             result.set(r)
             state.codegen.record(r.code)
             last_code.set(r.code.code)
+
+            # Save model artifact
+            model_name = input.model_name().strip()
+            if model_name:
+                artifact = ModelArtifact(
+                    name=model_name,
+                    model_type="linear_regression",
+                    model=r.model,
+                    feature_names=r.feature_names,
+                    target_name=target,
+                    created_at=datetime.now(),
+                    X_train=r.X_train,
+                    X_test=r.X_test,
+                    y_train=r.y_train,
+                    y_test=r.y_test,
+                )
+                state.model_store.save(model_name, artifact)
+                ui.notification_show(f"Model '{model_name}' saved.", type="message")
+
+            # Save train/test splits as datasets
+            if input.save_splits() and test_size and test_size > 0:
+                base = model_name or "regression"
+                if r.X_train is not None and r.y_train is not None:
+                    train_df = r.X_train.copy()
+                    train_df[target] = r.y_train
+                    state.load(f"{base}_train", train_df)
+                if r.X_test is not None and r.y_test is not None:
+                    test_df = r.X_test.copy()
+                    test_df[target] = r.y_test
+                    state.load(f"{base}_test", test_df)
+                ui.notification_show("Train/test datasets saved.", type="message")
+
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -80,13 +125,13 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
     def coef_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(round_df(r.coefficients, state._decimals()))
+        return render.DataGrid(round_df(r.coefficients, get_dec()))
 
     @render.data_frame
     def vif_table():
         r = result()
         req(r is not None)
-        return render.DataGrid(round_df(r.vif, state._decimals()))
+        return render.DataGrid(round_df(r.vif, get_dec()))
 
     @render.plot
     def resid_plot():
@@ -100,4 +145,5 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
         req(r is not None and r.qq_plot is not None)
         return r.qq_plot
 
+    download_result_server("dl", get_df=lambda: result().coefficients, filename="coefficients")
     code_panel_server("code", get_code=last_code)

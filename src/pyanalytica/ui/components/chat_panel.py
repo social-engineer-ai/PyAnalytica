@@ -47,6 +47,15 @@ def chat_panel_server(
         response string.  This is where the AI logic is plugged in.
     """
     messages: reactive.Value[list[dict[str, str]]] = reactive.value([])
+    _prefill_text = reactive.value("")
+    _prefill_counter = reactive.value(0)
+
+    @reactive.effect
+    def _apply_prefill():
+        _prefill_counter()  # dependency
+        text = _prefill_text()
+        if text:
+            ui.update_text_area("chat_input", value=text)
 
     @reactive.effect
     @reactive.event(input.send_btn)
@@ -113,6 +122,7 @@ def chat_panel_server(
 
     def prefill(text: str) -> None:
         """Programmatically set the chat input text (for quick-action buttons)."""
-        ui.update_text_area("chat_input", value=text)
+        _prefill_text.set(text)
+        _prefill_counter.set(_prefill_counter() + 1)
 
     return prefill

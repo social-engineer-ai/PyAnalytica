@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.reduce import pca_analysis
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -23,6 +24,7 @@ def reduce_ui():
         ui.output_plot("biplot", height="400px"),
         ui.h5("Loadings"),
         ui.output_data_frame("loadings"),
+        download_result_ui("dl"),
         ui.p("PCA reveals structure in your data. It's exploratory — not predictive.", class_="text-muted small mt-2"),
         code_panel_ui("code"),
     )
@@ -83,4 +85,9 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
         req(r is not None)
         return render.DataGrid(r.loadings.reset_index().rename(columns={"index": "Variable"}))
 
+    download_result_server(
+        "dl",
+        get_df=lambda: result().loadings.reset_index(),
+        filename="pca_loadings",
+    )
     code_panel_server("code", get_code=last_code)

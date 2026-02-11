@@ -8,7 +8,7 @@ Quick start (web app)::
 
     pyanalytica          # CLI command
     # or
-    python -m pyanalytica.ui.app
+    python -m pyanalytica
 
 Quick start (library)::
 
@@ -21,4 +21,4 @@ Quick start (library)::
     fig, code = histogram(df, "total_bill")
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

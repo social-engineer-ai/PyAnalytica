@@ -271,9 +271,11 @@ class TestInfrastructure:
         sel = page.locator(_sid("ds", "dataset"))
         expect(sel).to_be_attached()
 
-    def test_t03_header_has_decimals_selector(self, page: Page):
-        """The decimals dropdown is present in the header."""
-        sel = page.locator(_sid("ds", "decimals"))
+    def test_t03_decimals_selector_on_view_tab(self, page: Page):
+        """The decimals dropdown is present on the Data > View tab (not global header)."""
+        _nav_to(page, "Data", "View")
+        _wait_stable(page, 2000)
+        sel = page.locator(_sid("view", _sid("dec", "decimals")))
         expect(sel).to_be_attached()
 
     def test_t04_initial_dropdown_shows_none(self, page: Page):
@@ -1066,13 +1068,14 @@ class TestCrossCutting:
     """Cross-cutting tests: decimals selector, global error checks."""
 
     def test_t34_change_decimals(self, page: Page):
-        """Change the decimals dropdown from 4 to 2 and verify page still works."""
-        _select_option(page, _sid("ds", "decimals"), "2")
+        """Change the decimals dropdown on View tab from 4 to 2 and verify page still works."""
+        _nav_to(page, "Data", "View")
         _wait_stable(page, 2000)
 
-        # Navigate to a data view to see the effect
-        _nav_to(page, "Data", "View")
-        _wait_stable(page, 3000)
+        # Decimals is now per-module, inside the View tab
+        dec_id = _sid("view", _sid("dec", "decimals"))
+        _select_option(page, dec_id, "2")
+        _wait_stable(page, 2000)
 
         # Table should still render
         table = page.locator(_sid("view", "view_table"))
@@ -1080,7 +1083,7 @@ class TestCrossCutting:
         _assert_no_shiny_errors(page)
 
         # Restore to 4
-        _select_option(page, _sid("ds", "decimals"), "4")
+        _select_option(page, dec_id, "4")
         _wait_stable(page, 1000)
 
     def test_t35_no_errors_on_data_tabs(self, page: Page):

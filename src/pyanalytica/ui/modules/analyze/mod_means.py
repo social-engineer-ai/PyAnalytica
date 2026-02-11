@@ -9,6 +9,8 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
 @module.ui
@@ -24,7 +26,9 @@ def means_ui():
             width=300,
         ),
         ui.output_ui("test_result"),
+        decimals_ui("dec"),
         ui.output_data_frame("group_stats"),
+        download_result_ui("dl"),
         ui.output_ui("assumptions"),
         code_panel_ui("code"),
     )
@@ -34,6 +38,7 @@ def means_ui():
 def means_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
     test_result_val = reactive.value(None)
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_cols():
@@ -93,7 +98,7 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
     def group_stats():
         r = test_result_val()
         req(r is not None)
-        return render.DataGrid(round_df(r.group_stats, state._decimals()))
+        return render.DataGrid(round_df(r.group_stats, get_dec()))
 
     @render.ui
     def assumptions():
@@ -107,4 +112,5 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
             items.append(ui.p(f"{k}: {v}", class_="mb-1 small"))
         return ui.div(*items, class_="mt-2 p-2 bg-light rounded")
 
+    download_result_server("dl", get_df=lambda: test_result_val().group_stats, filename="group_stats")
     code_panel_server("code", get_code=last_code)
