@@ -91,7 +91,7 @@ def time_series(
     ax.set_xlabel(date_col)
     ax.set_ylabel(value_col)
     plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
 
     code_lines.extend([
         f'ax.set_title("{value_col} over Time")',

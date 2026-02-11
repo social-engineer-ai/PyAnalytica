@@ -26,13 +26,14 @@ def correlation_matrix(
     mask_upper = np.triu(np.ones_like(corr, dtype=bool), k=1)
 
     fig, ax = plt.subplots(figsize=(max(8, len(cols)), max(6, len(cols) * 0.8)))
+    mask = mask_upper | mask_threshold
     sns.heatmap(
-        corr, mask=mask_upper, annot=True, fmt=".2f",
+        corr, mask=mask, annot=True, fmt=".2f",
         cmap="RdBu_r", center=0, vmin=-1, vmax=1,
         square=True, ax=ax,
     )
     ax.set_title(f"Correlation Matrix ({method.title()})")
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
 
     cols_str = repr(cols)
     code = (

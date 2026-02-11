@@ -98,9 +98,15 @@ def apply_theme(theme: Theme | None = None) -> None:
         "grid.alpha": 0.3,
         "axes.spines.top": False,
         "axes.spines.right": False,
+        "figure.dpi": 150,
+        "savefig.dpi": 150,
     })
 
 
 def current_theme() -> Theme:
     """Return the currently active theme."""
     return _current_theme
+
+
+# Apply default theme at import time so DPI and style take effect automatically
+apply_theme()

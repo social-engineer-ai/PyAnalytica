@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import ColumnType, classify_column
+from pyanalytica.core.types import ColumnType, classify_column, get_categorical_columns
 from pyanalytica.visualize.distribute import bar_chart, boxplot, histogram, violin
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 
@@ -18,10 +19,24 @@ def distribute_ui():
             ui.input_select("chart_type", "Chart Type",
                 choices=["histogram", "boxplot", "violin", "bar"]),
             ui.output_ui("chart_options"),
+            ui.input_select("group_by", "Group By (optional)", choices=[""]),
+            ui.input_select("facet_col", "Facet Column (optional)", choices=[""]),
+            ui.input_select("facet_row", "Facet Row (optional)", choices=[""]),
             ui.input_action_button("run_btn", "Plot", class_="btn-primary w-100 mt-2"),
             width=280,
         ),
-        ui.output_plot("chart", height="500px"),
+        ui.card(
+            ui.card_header(
+                ui.div(
+                    {"class": "d-flex justify-content-between align-items-center"},
+                    ui.span("Chart"),
+                    ui.input_action_button("expand_btn", "Expand",
+                        class_="btn btn-outline-secondary btn-sm"),
+                ),
+            ),
+            ui.output_ui("chart_or_message"),
+            full_screen=True,
+        ),
         code_panel_ui("code"),
     )
 
@@ -29,12 +44,18 @@ def distribute_ui():
 @module.server
 def distribute_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    _last_fig = reactive.value(None)
+    _error_msg = reactive.value("")
 
     @reactive.effect
     def _update_cols():
         df = get_current_df()
         if df is not None:
+            cat_cols = get_categorical_columns(df)
             ui.update_select("col", choices=list(df.columns))
+            ui.update_select("group_by", choices=[""] + cat_cols)
+            ui.update_select("facet_col", choices=[""] + cat_cols)
+            ui.update_select("facet_row", choices=[""] + cat_cols)
 
     @render.ui
     def chart_options():
@@ -52,28 +73,77 @@ def distribute_server(input, output, session, state: WorkbenchState, get_current
             )
         return ui.div()
 
-    @render.plot
+    @render.ui
     @reactive.event(input.run_btn)
-    def chart():
+    def chart_or_message():
         df = get_current_df()
         req(df is not None)
         col = input.col()
         req(col)
         ct = input.chart_type()
 
+        # Validate: histogram/boxplot/violin need numeric columns
+        is_numeric = pd.api.types.is_numeric_dtype(df[col])
+        if ct in ("histogram", "boxplot", "violin") and not is_numeric:
+            _error_msg.set(f'"{col}" is not numeric. Use "bar" chart for categorical variables.')
+            return ui.div(
+                ui.p(
+                    ui.tags.strong("Cannot plot: "),
+                    f'"{col}" is a categorical/text column. '
+                    f'Histogram, boxplot, and violin require a numeric variable. '
+                    f'Switch to "bar" chart type for categorical data.',
+                    class_="text-danger mt-3 mx-3",
+                ),
+            )
+        if ct == "bar" and is_numeric:
+            pass  # bar on numeric is fine (value_counts still works)
+
+        _error_msg.set("")
+        group = input.group_by() or None
+        facet_c = input.facet_col() or None
+        facet_r = input.facet_row() or None
+
         if ct == "histogram":
-            fig, snippet = histogram(df, col, bins=input.bins(), kde=input.kde())
+            fig, snippet = histogram(
+                df, col, bins=input.bins(), kde=input.kde(),
+                group_by=group, facet_col=facet_c, facet_row=facet_r,
+            )
         elif ct == "boxplot":
-            fig, snippet = boxplot(df, col)
+            fig, snippet = boxplot(df, col, group_by=group, facet_col=facet_c, facet_row=facet_r)
         elif ct == "violin":
-            fig, snippet = violin(df, col)
+            fig, snippet = violin(df, col, group_by=group, facet_col=facet_c, facet_row=facet_r)
         elif ct == "bar":
             fig, snippet = bar_chart(df, col, orientation=input.orientation(), pct=input.pct())
         else:
-            return
+            return ui.div()
 
         state.codegen.record(snippet)
         last_code.set(snippet.code)
+        _last_fig.set(fig)
+        return ui.output_plot("chart", height="500px")
+
+    @render.plot
+    def chart():
+        fig = _last_fig()
+        req(fig is not None)
+        req(_error_msg() == "")
+        return fig
+
+    @reactive.effect
+    @reactive.event(input.expand_btn)
+    def _show_modal():
+        m = ui.modal(
+            ui.output_plot("chart_full", height="80vh"),
+            size="xl",
+            easy_close=True,
+            title="Chart (Full Screen)",
+        )
+        ui.modal_show(m)
+
+    @render.plot
+    def chart_full():
+        fig = _last_fig()
+        req(fig is not None)
         return fig
 
     code_panel_server("code", get_code=last_code)

@@ -22,7 +22,18 @@ def correlate_ui():
             ui.input_action_button("run_btn", "Plot", class_="btn-primary w-100 mt-2"),
             width=280,
         ),
-        ui.output_plot("chart", height="600px"),
+        ui.card(
+            ui.card_header(
+                ui.div(
+                    {"class": "d-flex justify-content-between align-items-center"},
+                    ui.span("Chart"),
+                    ui.input_action_button("expand_btn", "Expand",
+                        class_="btn btn-outline-secondary btn-sm"),
+                ),
+            ),
+            ui.output_plot("chart", height="600px"),
+            full_screen=True,
+        ),
         code_panel_ui("code"),
     )
 
@@ -30,6 +41,7 @@ def correlate_ui():
 @module.server
 def correlate_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    _last_fig = reactive.value(None)
 
     @reactive.effect
     def _update_cols():
@@ -53,6 +65,24 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
 
         state.codegen.record(snippet)
         last_code.set(snippet.code)
+        _last_fig.set(fig)
+        return fig
+
+    @reactive.effect
+    @reactive.event(input.expand_btn)
+    def _show_modal():
+        m = ui.modal(
+            ui.output_plot("chart_full", height="80vh"),
+            size="xl",
+            easy_close=True,
+            title="Chart (Full Screen)",
+        )
+        ui.modal_show(m)
+
+    @render.plot
+    def chart_full():
+        fig = _last_fig()
+        req(fig is not None)
         return fig
 
     code_panel_server("code", get_code=last_code)

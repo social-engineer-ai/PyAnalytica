@@ -14,13 +14,22 @@ from pyanalytica.core.codegen import CodeSnippet
 Figure = matplotlib.figure.Figure
 
 
+def _build_facet_args(facet_col: str | None, facet_row: str | None) -> str:
+    """Build facet argument string for code snippet."""
+    args = ""
+    if facet_col:
+        args += f', col="{facet_col}"'
+    if facet_row:
+        args += f', row="{facet_row}"'
+    return args
+
+
 def grouped_boxplot(
     df: pd.DataFrame, x_cat: str, y_num: str,
-    sort_by: str = "mean",
+    sort_by: str = "mean", hue: str | None = None,
+    facet_col: str | None = None, facet_row: str | None = None,
 ) -> tuple[Figure, CodeSnippet]:
     """Create a grouped box plot."""
-    fig, ax = plt.subplots(figsize=(10, 6))
-
     if sort_by == "mean":
         order = df.groupby(x_cat)[y_num].mean().sort_values(ascending=False).index.tolist()
     elif sort_by == "median":
@@ -28,20 +37,51 @@ def grouped_boxplot(
     else:
         order = sorted(df[x_cat].dropna().unique())
 
-    sns.boxplot(data=df, x=x_cat, y=y_num, order=order, ax=ax)
-    ax.set_title(f"{y_num} by {x_cat}")
-    plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
+    hue_kwarg = {}
+    if hue and hue in df.columns:
+        hue_kwarg["hue"] = hue
+    hue_str = f', hue="{hue}"' if hue else ""
+    facet_str = _build_facet_args(facet_col, facet_row)
 
-    code = (
-        f'fig, ax = plt.subplots(figsize=(10, 6))\n'
-        f'order = df.groupby("{x_cat}")["{y_num}"].mean().sort_values(ascending=False).index\n'
-        f'sns.boxplot(data=df, x="{x_cat}", y="{y_num}", order=order, ax=ax)\n'
-        f'ax.set_title("{y_num} by {x_cat}")\n'
-        f'plt.xticks(rotation=45, ha="right")\n'
-        f'plt.tight_layout()\n'
-        f'plt.show()'
-    )
+    if facet_col or facet_row:
+        facet_kwargs = {}
+        if facet_col and facet_col in df.columns:
+            facet_kwargs["col"] = facet_col
+        if facet_row and facet_row in df.columns:
+            facet_kwargs["row"] = facet_row
+
+        g = sns.catplot(
+            data=df, x=x_cat, y=y_num, kind="box",
+            order=order, **hue_kwarg, **facet_kwargs,
+        )
+        g.figure.suptitle(f"{y_num} by {x_cat}", y=1.02)
+        g.set_xticklabels(rotation=45, ha="right")
+        g.tight_layout()
+        fig = g.figure
+
+        code = (
+            f'g = sns.catplot(data=df, x="{x_cat}", y="{y_num}", kind="box"{hue_str}{facet_str})\n'
+            f'g.figure.suptitle("{y_num} by {x_cat}", y=1.02)\n'
+            f'g.set_xticklabels(rotation=45, ha="right")\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=df, x=x_cat, y=y_num, order=order, ax=ax, **hue_kwarg)
+        ax.set_title(f"{y_num} by {x_cat}")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout(pad=1.5)
+
+        code = (
+            f'fig, ax = plt.subplots(figsize=(10, 6))\n'
+            f'order = df.groupby("{x_cat}")["{y_num}"].mean().sort_values(ascending=False).index\n'
+            f'sns.boxplot(data=df, x="{x_cat}", y="{y_num}", order=order{hue_str}, ax=ax)\n'
+            f'ax.set_title("{y_num} by {x_cat}")\n'
+            f'plt.xticks(rotation=45, ha="right")\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
 
     return fig, CodeSnippet(
         code=code,
@@ -51,22 +91,54 @@ def grouped_boxplot(
 
 def grouped_violin(
     df: pd.DataFrame, x_cat: str, y_num: str,
+    hue: str | None = None,
+    facet_col: str | None = None, facet_row: str | None = None,
 ) -> tuple[Figure, CodeSnippet]:
     """Create a grouped violin plot."""
-    fig, ax = plt.subplots(figsize=(10, 6))
     order = df.groupby(x_cat)[y_num].mean().sort_values(ascending=False).index.tolist()
-    sns.violinplot(data=df, x=x_cat, y=y_num, order=order, ax=ax)
-    ax.set_title(f"{y_num} by {x_cat}")
-    plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
 
-    code = (
-        f'fig, ax = plt.subplots(figsize=(10, 6))\n'
-        f'sns.violinplot(data=df, x="{x_cat}", y="{y_num}", ax=ax)\n'
-        f'ax.set_title("{y_num} by {x_cat}")\n'
-        f'plt.tight_layout()\n'
-        f'plt.show()'
-    )
+    hue_kwarg = {}
+    if hue and hue in df.columns:
+        hue_kwarg["hue"] = hue
+    hue_str = f', hue="{hue}"' if hue else ""
+    facet_str = _build_facet_args(facet_col, facet_row)
+
+    if facet_col or facet_row:
+        facet_kwargs = {}
+        if facet_col and facet_col in df.columns:
+            facet_kwargs["col"] = facet_col
+        if facet_row and facet_row in df.columns:
+            facet_kwargs["row"] = facet_row
+
+        g = sns.catplot(
+            data=df, x=x_cat, y=y_num, kind="violin",
+            order=order, **hue_kwarg, **facet_kwargs,
+        )
+        g.figure.suptitle(f"{y_num} by {x_cat}", y=1.02)
+        g.set_xticklabels(rotation=45, ha="right")
+        g.tight_layout()
+        fig = g.figure
+
+        code = (
+            f'g = sns.catplot(data=df, x="{x_cat}", y="{y_num}", kind="violin"{hue_str}{facet_str})\n'
+            f'g.figure.suptitle("{y_num} by {x_cat}", y=1.02)\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.violinplot(data=df, x=x_cat, y=y_num, order=order, ax=ax, **hue_kwarg)
+        ax.set_title(f"{y_num} by {x_cat}")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout(pad=1.5)
+
+        code = (
+            f'fig, ax = plt.subplots(figsize=(10, 6))\n'
+            f'sns.violinplot(data=df, x="{x_cat}", y="{y_num}"{hue_str}, ax=ax)\n'
+            f'ax.set_title("{y_num} by {x_cat}")\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
 
     return fig, CodeSnippet(
         code=code,
@@ -76,26 +148,58 @@ def grouped_violin(
 
 def bar_of_means(
     df: pd.DataFrame, x_cat: str, y_num: str,
-    error_bars: bool = True,
+    error_bars: bool = True, hue: str | None = None,
+    facet_col: str | None = None, facet_row: str | None = None,
 ) -> tuple[Figure, CodeSnippet]:
     """Create a bar chart of means with optional error bars."""
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ci_str = "95" if error_bars else None
-    sns.barplot(data=df, x=x_cat, y=y_num, ci=ci_str if error_bars else None,
-                errorbar=("ci", 95) if error_bars else None, ax=ax)
-    ax.set_title(f"Mean {y_num} by {x_cat}")
-    plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
-
+    hue_kwarg = {}
+    if hue and hue in df.columns:
+        hue_kwarg["hue"] = hue
+    hue_str = f', hue="{hue}"' if hue else ""
     err_str = ', errorbar=("ci", 95)' if error_bars else ""
-    code = (
-        f'fig, ax = plt.subplots(figsize=(10, 6))\n'
-        f'sns.barplot(data=df, x="{x_cat}", y="{y_num}"{err_str}, ax=ax)\n'
-        f'ax.set_title("Mean {y_num} by {x_cat}")\n'
-        f'plt.tight_layout()\n'
-        f'plt.show()'
-    )
+    facet_str = _build_facet_args(facet_col, facet_row)
+
+    if facet_col or facet_row:
+        facet_kwargs = {}
+        if facet_col and facet_col in df.columns:
+            facet_kwargs["col"] = facet_col
+        if facet_row and facet_row in df.columns:
+            facet_kwargs["row"] = facet_row
+
+        g = sns.catplot(
+            data=df, x=x_cat, y=y_num, kind="bar",
+            errorbar=("ci", 95) if error_bars else None,
+            **hue_kwarg, **facet_kwargs,
+        )
+        g.figure.suptitle(f"Mean {y_num} by {x_cat}", y=1.02)
+        g.set_xticklabels(rotation=45, ha="right")
+        g.tight_layout()
+        fig = g.figure
+
+        code = (
+            f'g = sns.catplot(data=df, x="{x_cat}", y="{y_num}", kind="bar"{err_str}{hue_str}{facet_str})\n'
+            f'g.figure.suptitle("Mean {y_num} by {x_cat}", y=1.02)\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(
+            data=df, x=x_cat, y=y_num,
+            errorbar=("ci", 95) if error_bars else None,
+            ax=ax, **hue_kwarg,
+        )
+        ax.set_title(f"Mean {y_num} by {x_cat}")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout(pad=1.5)
+
+        code = (
+            f'fig, ax = plt.subplots(figsize=(10, 6))\n'
+            f'sns.barplot(data=df, x="{x_cat}", y="{y_num}"{err_str}{hue_str}, ax=ax)\n'
+            f'ax.set_title("Mean {y_num} by {x_cat}")\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
 
     return fig, CodeSnippet(
         code=code,
@@ -105,21 +209,53 @@ def bar_of_means(
 
 def strip_plot(
     df: pd.DataFrame, x_cat: str, y_num: str,
+    hue: str | None = None,
+    facet_col: str | None = None, facet_row: str | None = None,
 ) -> tuple[Figure, CodeSnippet]:
     """Create a strip plot (jittered dot plot)."""
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.stripplot(data=df, x=x_cat, y=y_num, alpha=0.5, jitter=True, ax=ax)
-    ax.set_title(f"{y_num} by {x_cat}")
-    plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
+    hue_kwarg = {}
+    if hue and hue in df.columns:
+        hue_kwarg["hue"] = hue
+    hue_str = f', hue="{hue}"' if hue else ""
+    facet_str = _build_facet_args(facet_col, facet_row)
 
-    code = (
-        f'fig, ax = plt.subplots(figsize=(10, 6))\n'
-        f'sns.stripplot(data=df, x="{x_cat}", y="{y_num}", alpha=0.5, jitter=True, ax=ax)\n'
-        f'ax.set_title("{y_num} by {x_cat}")\n'
-        f'plt.tight_layout()\n'
-        f'plt.show()'
-    )
+    if facet_col or facet_row:
+        facet_kwargs = {}
+        if facet_col and facet_col in df.columns:
+            facet_kwargs["col"] = facet_col
+        if facet_row and facet_row in df.columns:
+            facet_kwargs["row"] = facet_row
+
+        g = sns.catplot(
+            data=df, x=x_cat, y=y_num, kind="strip",
+            alpha=0.5, jitter=True, **hue_kwarg, **facet_kwargs,
+        )
+        g.figure.suptitle(f"{y_num} by {x_cat}", y=1.02)
+        g.set_xticklabels(rotation=45, ha="right")
+        g.tight_layout()
+        fig = g.figure
+
+        code = (
+            f'g = sns.catplot(data=df, x="{x_cat}", y="{y_num}", kind="strip", '
+            f'alpha=0.5, jitter=True{hue_str}{facet_str})\n'
+            f'g.figure.suptitle("{y_num} by {x_cat}", y=1.02)\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.stripplot(data=df, x=x_cat, y=y_num, alpha=0.5, jitter=True, ax=ax, **hue_kwarg)
+        ax.set_title(f"{y_num} by {x_cat}")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout(pad=1.5)
+
+        code = (
+            f'fig, ax = plt.subplots(figsize=(10, 6))\n'
+            f'sns.stripplot(data=df, x="{x_cat}", y="{y_num}", alpha=0.5, jitter=True{hue_str}, ax=ax)\n'
+            f'ax.set_title("{y_num} by {x_cat}")\n'
+            f'plt.tight_layout()\n'
+            f'plt.show()'
+        )
 
     return fig, CodeSnippet(
         code=code,
