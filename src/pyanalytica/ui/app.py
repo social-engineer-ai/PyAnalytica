@@ -231,7 +231,7 @@ def create_app(config: CourseConfig | None = None) -> App:
         # Populate session dropdown on startup
         _refresh_session_choices()
 
-    return App(app_ui, server, static_assets_dir=str(Path(__file__).parent / "www"))
+    return App(app_ui, server, static_assets=Path(__file__).parent / "www")
 
 
 app = create_app()
