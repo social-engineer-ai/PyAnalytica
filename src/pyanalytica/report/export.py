@@ -307,3 +307,246 @@ def export_jupyter_notebook(codegen: CodeGenerator) -> str:
 def export_jupyter_bytes(codegen: CodeGenerator) -> bytes:
     """Export as bytes suitable for a file download."""
     return export_jupyter_notebook(codegen).encode("utf-8")
+
+
+# ---- Report Builder exports -----------------------------------------------
+
+def _render_markdown(text: str) -> str:
+    """Render markdown text to HTML. Uses the ``markdown`` library if available."""
+    try:
+        import markdown as md  # type: ignore[import-untyped]
+        return md.markdown(text, extensions=["fenced_code", "tables"])
+    except ImportError:
+        pass
+    # Minimal fallback: headings and paragraphs
+    lines = text.split("\n")
+    parts: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("### "):
+            parts.append(f"<h3>{_escape(stripped[4:])}</h3>")
+        elif stripped.startswith("## "):
+            parts.append(f"<h2>{_escape(stripped[3:])}</h2>")
+        elif stripped.startswith("# "):
+            parts.append(f"<h1>{_escape(stripped[2:])}</h1>")
+        elif stripped.startswith("*") and stripped.endswith("*") and len(stripped) > 2:
+            parts.append(f"<p><em>{_escape(stripped[1:-1])}</em></p>")
+        else:
+            parts.append(f"<p>{_escape(stripped)}</p>")
+    return "\n".join(parts)
+
+
+def export_report_html(builder, show_code: bool = True) -> str:
+    """Export a ReportBuilder as a self-contained HTML page.
+
+    Parameters
+    ----------
+    builder : ReportBuilder
+        The report to export.
+    show_code : bool
+        If False, code blocks are hidden but descriptions are still shown.
+    """
+    from pyanalytica.core.report_builder import CellType
+
+    cells = [c for c in builder.get_cells() if c.enabled]
+
+    css = """\
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                     Helvetica, Arial, sans-serif;
+        background: #fafafa;
+        color: #212121;
+        padding: 2rem;
+        line-height: 1.6;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; color: #1a237e; }
+    header p { color: #757575; font-size: 0.9rem; }
+    .card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .description {
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+    }
+    .step-label {
+        font-size: 0.8rem;
+        color: #757575;
+        margin-bottom: 0.25rem;
+    }
+    pre {
+        background: #263238;
+        color: #eeffff;
+        padding: 1rem 1.2rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+    .md-cell { margin-bottom: 1.5rem; }
+    .md-cell h1 { font-size: 1.6rem; color: #1a237e; margin-bottom: 0.5rem; }
+    .md-cell h2 { font-size: 1.3rem; color: #283593; margin-bottom: 0.4rem; }
+    .md-cell h3 { font-size: 1.1rem; color: #303f9f; margin-bottom: 0.3rem; }
+    .md-cell p { margin-bottom: 0.5rem; }
+    .md-cell em { color: #616161; }
+    footer {
+        text-align: center; margin-top: 2rem;
+        font-size: 0.8rem; color: #bdbdbd;
+    }
+    """
+
+    cards: list[str] = []
+    step_num = 0
+    for cell in cells:
+        if cell.cell_type == CellType.MARKDOWN:
+            rendered = _render_markdown(cell.markdown)
+            cards.append(f'<div class="md-cell">{rendered}</div>')
+        else:
+            # Code cell
+            step_num += 1
+            bg, fg = _ACTION_COLORS.get(cell.action, _DEFAULT_ACTION_COLOR)
+            card = (
+                f'<div class="card">'
+                f'  <p class="step-label">Step {step_num}</p>'
+                f'  <div class="card-header">'
+                f'    <span class="badge" style="background:{bg};color:{fg};">'
+                f'      {_escape(cell.action)}'
+                f'    </span>'
+                f'    <strong>{_escape(cell.description)}</strong>'
+                f'  </div>'
+            )
+            if show_code and cell.code.strip():
+                code_lines: list[str] = []
+                if cell.imports:
+                    for imp in sorted(set(cell.imports)):
+                        code_lines.append(imp)
+                    code_lines.append("")
+                code_lines.extend(cell.code.split("\n"))
+                card += f'  <pre><code>{_escape(chr(10).join(code_lines))}</code></pre>'
+            card += '</div>'
+            cards.append(card)
+
+    body = "\n".join(cards) if cards else '<div style="text-align:center;color:#bdbdbd;padding:4rem;">No cells in report.</div>'
+
+    author_line = f"<p>By {_escape(builder.author)}</p>" if builder.author else ""
+
+    page = (
+        "<!DOCTYPE html>\n"
+        "<html lang=\"en\">\n"
+        "<head>\n"
+        '  <meta charset="utf-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"  <title>{_escape(builder.title)}</title>\n"
+        f"  <style>\n{css}  </style>\n"
+        "</head>\n"
+        "<body>\n"
+        "  <header>\n"
+        f"    <h1>{_escape(builder.title)}</h1>\n"
+        f"    {author_line}\n"
+        "  </header>\n"
+        f"  {body}\n"
+        "  <footer>\n"
+        "    <p>Produced by PyAnalytica</p>\n"
+        "  </footer>\n"
+        "</body>\n"
+        "</html>\n"
+    )
+    return page
+
+
+def export_report_jupyter(builder) -> str:
+    """Export a ReportBuilder as a Jupyter notebook JSON string."""
+    from pyanalytica.core.report_builder import CellType
+
+    enabled_cells = [c for c in builder.get_cells() if c.enabled]
+    nb_cells: list[dict] = []
+
+    # Gather all imports
+    all_imports: set[str] = set()
+    for c in enabled_cells:
+        if c.cell_type == CellType.CODE:
+            for imp in c.imports:
+                all_imports.add(imp)
+    if not all_imports:
+        all_imports.add("import pandas as pd")
+
+    # Import cell
+    nb_cells.append({
+        "cell_type": "code",
+        "metadata": {},
+        "source": [line + "\n" for line in sorted(all_imports)],
+        "execution_count": None,
+        "outputs": [],
+    })
+
+    for c in enabled_cells:
+        if c.cell_type == CellType.MARKDOWN:
+            nb_cells.append({
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [c.markdown + "\n"],
+            })
+        else:
+            # Description as markdown header
+            nb_cells.append({
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [f"## {c.description}\n"],
+            })
+            nb_cells.append({
+                "cell_type": "code",
+                "metadata": {},
+                "source": [line + "\n" for line in c.code.split("\n")],
+                "execution_count": None,
+                "outputs": [],
+            })
+
+    if not nb_cells:
+        nb_cells.append({
+            "cell_type": "code",
+            "metadata": {},
+            "source": [],
+            "execution_count": None,
+            "outputs": [],
+        })
+
+    notebook = {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
+            "language_info": {"name": "python", "version": "3.11.0"},
+        },
+        "cells": nb_cells,
+    }
+    return json.dumps(notebook, indent=1)
