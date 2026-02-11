@@ -56,7 +56,7 @@ def test_convert_dtype_float(df):
 
 def test_convert_dtype_str(df):
     result, _ = convert_dtype(df, "c", "str")
-    assert result["c"].dtype == object
+    assert pd.api.types.is_string_dtype(result["c"])
 
 
 def test_drop_duplicates(df):

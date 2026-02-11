@@ -44,7 +44,7 @@ def classify_column(series: pd.Series) -> ColumnType:
             return ColumnType.ID
         return ColumnType.NUMERIC
 
-    if isinstance(series.dtype, pd.CategoricalDtype) or series.dtype == object:
+    if isinstance(series.dtype, pd.CategoricalDtype) or series.dtype == object or pd.api.types.is_string_dtype(series):
         n_unique = series.nunique()
         n_total = len(series.dropna())
         if n_total == 0:

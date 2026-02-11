@@ -33,15 +33,16 @@ def predict_from_artifact(
     X_clean = X[valid_mask]
 
     result_df = df.copy()
-    result_df["prediction"] = np.nan
 
     preds = artifact.model.predict(X_clean)
 
     # Decode classification predictions back to original labels
     if artifact.label_encoder is not None:
         preds_decoded = artifact.label_encoder.inverse_transform(preds)
+        result_df["prediction"] = pd.array([pd.NA] * len(result_df), dtype="object")
         result_df.loc[valid_mask, "prediction"] = preds_decoded
     else:
+        result_df["prediction"] = np.nan
         result_df.loc[valid_mask, "prediction"] = preds
 
     # Add probabilities if available (classification models)
