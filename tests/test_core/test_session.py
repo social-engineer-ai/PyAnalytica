@@ -115,6 +115,38 @@ class TestLoadMissing:
         assert state.datasets == {}
 
 
+class TestModelStorePersistence:
+    def test_model_store_roundtrip(self):
+        from datetime import datetime
+        from pyanalytica.core.model_store import ModelArtifact
+
+        state = _make_state_with_data()
+        artifact = ModelArtifact(
+            name="test_model",
+            model_type="linear_regression",
+            model="fake_model",
+            feature_names=["a"],
+            target_name="b",
+            created_at=datetime.now(),
+        )
+        state.model_store.save("test_model", artifact)
+        save_session(state, "with_model")
+
+        state2 = WorkbenchState()
+        load_session(state2, "with_model")
+        assert state2.model_store.has("test_model")
+        assert state2.model_store.get("test_model").model_type == "linear_regression"
+
+    def test_model_store_empty_backward_compat(self):
+        """Sessions saved before model_store support load cleanly."""
+        state = _make_state_with_data()
+        save_session(state, "no_models")
+
+        state2 = WorkbenchState()
+        load_session(state2, "no_models")
+        assert len(state2.model_store) == 0
+
+
 class TestAutosave:
     def test_default_name_is_autosave(self):
         state = _make_state_with_data()

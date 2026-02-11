@@ -104,15 +104,21 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
             # Save train/test splits as datasets
             if input.save_splits():
                 base = model_name or "classifier"
+                saved = []
                 if r.X_train is not None and r.y_train is not None:
                     train_df = r.X_train.copy()
                     train_df[target] = r.y_train.values
                     state.load(f"{base}_train", train_df)
+                    saved.append(f"{base}_train")
                 if r.X_test is not None and r.y_test is not None:
                     test_df = r.X_test.copy()
                     test_df[target] = r.y_test.values
                     state.load(f"{base}_test", test_df)
-                ui.notification_show("Train/test datasets saved.", type="message")
+                    saved.append(f"{base}_test")
+                if saved:
+                    ui.notification_show(f"Saved datasets: {', '.join(saved)}", type="message")
+                else:
+                    ui.notification_show("No train/test data to save (set Test Split > 0).", type="warning")
 
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
