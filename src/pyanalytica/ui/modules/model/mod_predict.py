@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import io
-
 import pandas as pd
 from shiny import module, reactive, render, req, ui
 
+from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.model.predict import predict_from_artifact
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
 
@@ -29,10 +29,11 @@ def predict_ui():
             ui.input_action_button("predict_btn", "Run Prediction", class_="btn-primary w-100 mt-2"),
             ui.tags.hr(),
             ui.input_text("save_name", "Save Predictions As", placeholder="predictions"),
-            ui.input_action_button("save_btn", "Save to Workbench", class_="btn-outline-secondary w-100 mt-1"),
+            ui.input_action_button("save_btn", "Save to Workbench", class_="btn-outline-primary w-100 mt-1"),
             width=300,
         ),
         ui.output_ui("predict_summary"),
+        decimals_ui("dec"),
         ui.output_data_frame("predict_table"),
         download_result_ui("dl"),
         code_panel_ui("code"),
@@ -43,6 +44,7 @@ def predict_ui():
 def predict_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
     pred_df = reactive.value(None)
+    get_dec = decimals_server("dec")
 
     @reactive.effect
     def _update_models():
@@ -72,28 +74,45 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
         try:
             artifact = state.model_store.get(model_name)
             source = input.data_source()
+            actual_values = None
 
             if source == "train":
                 if artifact.X_train is None:
                     ui.notification_show("No training data stored.", type="warning")
                     return
                 df = artifact.X_train.copy()
+                if artifact.y_train is not None:
+                    actual_values = artifact.y_train
             elif source == "test":
                 if artifact.X_test is None:
                     ui.notification_show("No test data stored.", type="warning")
                     return
                 df = artifact.X_test.copy()
+                if artifact.y_test is not None:
+                    actual_values = artifact.y_test
             elif source == "loaded":
                 ds_name = input.loaded_dataset()
                 req(ds_name)
                 df = state.get(ds_name)
+                # If the loaded dataset has the target column, grab actuals
+                if artifact.target_name in df.columns:
+                    actual_values = df[artifact.target_name]
             else:  # upload
                 file_info = input.upload_file()
                 req(file_info)
                 file_path = file_info[0]["datapath"]
                 df = pd.read_csv(file_path)
+                if artifact.target_name in df.columns:
+                    actual_values = df[artifact.target_name]
 
             result_df, snippet = predict_from_artifact(artifact, df)
+
+            # Insert actual values right before prediction column for easy comparison
+            if actual_values is not None:
+                col_name = f"actual_{artifact.target_name}"
+                pred_idx = result_df.columns.get_loc("prediction")
+                result_df.insert(pred_idx, col_name, actual_values.values)
+
             pred_df.set(result_df)
             state.codegen.record(snippet)
             last_code.set(snippet.code)
@@ -135,7 +154,7 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
     def predict_table():
         df = pred_df()
         req(df is not None)
-        return render.DataGrid(df.head(500), height="500px")
+        return render.DataGrid(round_df(df.head(500), get_dec()), height="500px")
 
     download_result_server("dl", get_df=pred_df, filename="predictions")
     code_panel_server("code", get_code=last_code)
