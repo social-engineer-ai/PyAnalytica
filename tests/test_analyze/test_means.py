@@ -49,3 +49,43 @@ def test_interpretation_significant(df):
 def test_code_generation(df):
     result = one_sample_ttest(df, "value", mu=10)
     assert "ttest_1samp" in result.code.code
+
+
+def test_one_sample_less(df):
+    result = one_sample_ttest(df, "value", mu=10, alternative="less")
+    two_sided = one_sample_ttest(df, "value", mu=10)
+    assert result.p_value != two_sided.p_value
+    assert "lower than" in result.interpretation
+
+
+def test_one_sample_greater(df):
+    result = one_sample_ttest(df, "value", mu=10, alternative="greater")
+    assert "higher than" in result.interpretation
+
+
+def test_two_sample_less():
+    # Use closer means so p-values don't both round to 0
+    np.random.seed(99)
+    df2 = pd.DataFrame({
+        "value": np.concatenate([np.random.normal(10, 2, 30), np.random.normal(11, 2, 30)]),
+        "group": ["A"] * 30 + ["B"] * 30,
+    })
+    result = two_sample_ttest(df2, "value", "group", alternative="less")
+    two_sided = two_sample_ttest(df2, "value", "group")
+    # One-sided p should be about half of two-sided for matching direction
+    assert result.p_value != two_sided.p_value
+    assert "lower than" in result.interpretation
+
+
+def test_two_sample_alternative_in_code(df):
+    result = two_sample_ttest(df, "value", "group", alternative="greater")
+    assert 'alternative="greater"' in result.code.code
+    result_default = two_sample_ttest(df, "value", "group")
+    assert "alternative" not in result_default.code.code
+
+
+def test_default_is_two_sided(df):
+    r1 = one_sample_ttest(df, "value", mu=10)
+    r2 = one_sample_ttest(df, "value", mu=10, alternative="two-sided")
+    assert r1.p_value == r2.p_value
+    assert r1.statistic == r2.statistic

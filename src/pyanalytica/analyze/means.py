@@ -27,15 +27,23 @@ class MeansTestResult:
 
 
 def one_sample_ttest(
-    df: pd.DataFrame, col: str, mu: float
+    df: pd.DataFrame, col: str, mu: float, alternative: str = "two-sided"
 ) -> MeansTestResult:
-    """One-sample t-test: compare sample mean to a hypothesized value."""
+    """One-sample t-test: compare sample mean to a hypothesized value.
+
+    alternative: 'two-sided', 'less', or 'greater'
+    """
     data = df[col].dropna()
     n = len(data)
-    t_stat, p_val = stats.ttest_1samp(data, mu)
+    t_stat, p_val = stats.ttest_1samp(data, mu, alternative=alternative)
 
     se = data.std() / np.sqrt(n)
-    ci = (data.mean() - 1.96 * se, data.mean() + 1.96 * se)
+    if alternative == "two-sided":
+        ci = (data.mean() - 1.96 * se, data.mean() + 1.96 * se)
+    elif alternative == "less":
+        ci = (float("-inf"), data.mean() + 1.645 * se)
+    else:  # greater
+        ci = (data.mean() - 1.645 * se, float("inf"))
 
     # Cohen's d
     d = (data.mean() - mu) / data.std()
@@ -55,16 +63,25 @@ def one_sample_ttest(
 
     # Interpretation
     sig = "significantly " if p_val < 0.05 else "not significantly "
-    direction = "higher" if data.mean() > mu else "lower"
+    if alternative == "less":
+        direction = "lower"
+        comparison = "lower than"
+    elif alternative == "greater":
+        direction = "higher"
+        comparison = "higher than"
+    else:
+        direction = "higher" if data.mean() > mu else "lower"
+        comparison = "different from"
     interp = (
-        f"The sample mean ({data.mean():.2f}) is {sig}{direction} than "
+        f"The sample mean ({data.mean():.2f}) is {sig}{comparison} "
         f"the hypothesized value ({mu}), t({n-1}) = {t_stat:.2f}, "
         f"p = {_fmt_p(p_val)}, d = {abs(d):.2f}."
     )
 
+    alt_str = f', alternative="{alternative}"' if alternative != "two-sided" else ""
     code = (
         f'from scipy import stats\n'
-        f't_stat, p_val = stats.ttest_1samp(df["{col}"].dropna(), {mu})\n'
+        f't_stat, p_val = stats.ttest_1samp(df["{col}"].dropna(), {mu}{alt_str})\n'
         f'print(f"t = {{t_stat:.3f}}, p = {{p_val:.4f}}")'
     )
 
@@ -88,9 +105,12 @@ def one_sample_ttest(
 
 
 def two_sample_ttest(
-    df: pd.DataFrame, value_col: str, group_col: str
+    df: pd.DataFrame, value_col: str, group_col: str, alternative: str = "two-sided"
 ) -> MeansTestResult:
-    """Two-sample (independent) t-test."""
+    """Two-sample (independent) t-test.
+
+    alternative: 'two-sided', 'less', or 'greater'
+    """
     groups = df.groupby(group_col)[value_col].apply(lambda x: x.dropna().tolist())
     if len(groups) != 2:
         raise ValueError(f"Expected 2 groups, got {len(groups)}. Column '{group_col}' has {len(groups)} unique values.")
@@ -102,7 +122,7 @@ def two_sample_ttest(
     lev_stat, lev_p = stats.levene(g1, g2)
     equal_var = lev_p > 0.05
 
-    t_stat, p_val = stats.ttest_ind(g1, g2, equal_var=equal_var)
+    t_stat, p_val = stats.ttest_ind(g1, g2, equal_var=equal_var, alternative=alternative)
 
     # Cohen's d
     pooled_std = np.sqrt(((len(g1)-1)*np.std(g1, ddof=1)**2 + (len(g2)-1)*np.std(g2, ddof=1)**2)
@@ -131,19 +151,26 @@ def two_sample_ttest(
     sig = "significantly " if p_val < 0.05 else "not significantly "
     welch = " (Welch's)" if not equal_var else ""
     df_val = len(g1) + len(g2) - 2
+    if alternative == "less":
+        comparison = "lower than"
+    elif alternative == "greater":
+        comparison = "higher than"
+    else:
+        comparison = "different from"
     interp = (
         f"The mean {value_col} for {g1_name} ({np.mean(g1):.2f}) is {sig}"
-        f"different from {g2_name} ({np.mean(g2):.2f}), "
+        f"{comparison} {g2_name} ({np.mean(g2):.2f}), "
         f"t({df_val}) = {t_stat:.2f}{welch}, "
         f"p = {_fmt_p(p_val)}, d = {abs(d):.2f}."
     )
 
     eq_str = "True" if equal_var else "False"
+    alt_str = f', alternative="{alternative}"' if alternative != "two-sided" else ""
     code = (
         f'from scipy import stats\n'
         f'g1 = df[df["{group_col}"] == "{g1_name}"]["{value_col}"].dropna()\n'
         f'g2 = df[df["{group_col}"] == "{g2_name}"]["{value_col}"].dropna()\n'
-        f't_stat, p_val = stats.ttest_ind(g1, g2, equal_var={eq_str})\n'
+        f't_stat, p_val = stats.ttest_ind(g1, g2, equal_var={eq_str}{alt_str})\n'
         f'print(f"t = {{t_stat:.3f}}, p = {{p_val:.4f}}")'
     )
 

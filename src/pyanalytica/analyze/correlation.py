@@ -25,11 +25,13 @@ class CorrelationResult:
 
 
 def correlation_test(
-    df: pd.DataFrame, x: str, y: str, method: str = "pearson"
+    df: pd.DataFrame, x: str, y: str, method: str = "pearson",
+    alternative: str = "two-sided"
 ) -> CorrelationResult:
     """Test the significance of correlation between two variables.
 
     method: 'pearson' or 'spearman'
+    alternative: 'two-sided', 'less', or 'greater'
     """
     clean = df[[x, y]].dropna()
     n = len(clean)
@@ -38,17 +40,24 @@ def correlation_test(
         raise ValueError(f"Need at least 3 non-missing pairs, got {n}.")
 
     if method == "pearson":
-        r, p_val = stats.pearsonr(clean[x], clean[y])
+        r, p_val = stats.pearsonr(clean[x], clean[y], alternative=alternative)
     elif method == "spearman":
-        r, p_val = stats.spearmanr(clean[x], clean[y])
+        r, p_val = stats.spearmanr(clean[x], clean[y], alternative=alternative)
     else:
         raise ValueError(f"Unknown method: {method}. Use 'pearson' or 'spearman'.")
 
     # Fisher z-transform for confidence interval
     z = np.arctanh(r)
     se = 1 / np.sqrt(n - 3)
-    ci_lower = np.tanh(z - 1.96 * se)
-    ci_upper = np.tanh(z + 1.96 * se)
+    if alternative == "two-sided":
+        ci_lower = np.tanh(z - 1.96 * se)
+        ci_upper = np.tanh(z + 1.96 * se)
+    elif alternative == "less":
+        ci_lower = -1.0
+        ci_upper = np.tanh(z + 1.645 * se)
+    else:  # greater
+        ci_lower = np.tanh(z - 1.645 * se)
+        ci_upper = 1.0
 
     # Interpret strength
     abs_r = abs(r)
@@ -72,16 +81,21 @@ def correlation_test(
         p_str = f"p = {p_val:.3f}"
 
     method_name = "Pearson's r" if method == "pearson" else "Spearman's \u03c1"
+    if alternative == "two-sided":
+        ci_label = "95% CI"
+    else:
+        ci_label = "95% one-sided CI"
     interp = (
         f"{strength.title()} {direction} {sig}correlation between {x} and {y}, "
-        f"{method_name} = {r:.3f}, {p_str}, 95% CI [{ci_lower:.3f}, {ci_upper:.3f}]. "
+        f"{method_name} = {r:.3f}, {p_str}, {ci_label} [{ci_lower:.3f}, {ci_upper:.3f}]. "
         f"Correlation does not imply causation."
     )
 
     func_name = "pearsonr" if method == "pearson" else "spearmanr"
+    alt_str = f', alternative="{alternative}"' if alternative != "two-sided" else ""
     code = (
         f'from scipy import stats\n'
-        f'r, p = stats.{func_name}(df["{x}"].dropna(), df["{y}"].dropna())\n'
+        f'r, p = stats.{func_name}(df["{x}"].dropna(), df["{y}"].dropna(){alt_str})\n'
         f'print(f"r = {{r:.3f}}, p = {{p:.4f}}")'
     )
 
