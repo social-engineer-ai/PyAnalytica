@@ -17,6 +17,8 @@ def correlation_ui():
             ui.input_select("x", "Variable X", choices=[]),
             ui.input_select("y", "Variable Y", choices=[]),
             ui.input_select("method", "Method", choices=["pearson", "spearman"]),
+            ui.input_select("alternative", "Alternative Hypothesis",
+                choices={"two-sided": "Two-sided (!=)", "less": "Less (<)", "greater": "Greater (>)"}),
             ui.input_action_button("run_btn", "Run Test", class_="btn-primary w-100 mt-2"),
             width=280,
         ),
@@ -46,9 +48,9 @@ def correlation_server(input, output, session, state: WorkbenchState, get_curren
         x, y = input.x(), input.y()
         req(x, y)
         try:
-            r = correlation_test(df, x, y, method=input.method())
+            r = correlation_test(df, x, y, method=input.method(), alternative=input.alternative())
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="analyze", description="Correlation test")
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")

@@ -100,7 +100,7 @@ def evaluate_server(input, output, session, state: WorkbenchState, get_current_d
 
             r = evaluate_classification(y_true_display, y_pred_display, y_prob=y_prob)
             eval_result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="model", description="Model evaluation")
             last_code.set(r.code.code)
 
         except Exception as e:

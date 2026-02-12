@@ -56,7 +56,7 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
             else:
                 r = hierarchical_cluster(df, features, n_clusters=input.n_clusters())
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="model", description="Cluster analysis")
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")

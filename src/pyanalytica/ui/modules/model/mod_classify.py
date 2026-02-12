@@ -78,7 +78,7 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
                                   random_state=seed)
                 mt = "decision_tree"
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="model", description="Classification")
             last_code.set(r.code.code)
 
             # Save model artifact

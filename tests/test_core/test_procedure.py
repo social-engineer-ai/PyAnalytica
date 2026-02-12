@@ -189,3 +189,64 @@ class TestCodegenIntegration:
         snippet = CodeSnippet(code="x = 1", imports=[])
         state.codegen.record(snippet)
         assert len(state.procedure_recorder.get_steps()) == 0
+
+    def test_explicit_action_description_override_history(self):
+        """Explicit action/description params override history fallback."""
+        from pyanalytica.core.state import WorkbenchState
+        import pandas as pd
+
+        state = WorkbenchState()
+        state.procedure_recorder.start_recording()
+
+        # Load a dataset (adds to history with action="load")
+        state.load("mydata", pd.DataFrame({"a": [1]}))
+
+        # Record with explicit action/description — should NOT use history
+        snippet = CodeSnippet(code="result = ttest(df['a'])", imports=["from scipy import stats"])
+        state.codegen.record(snippet, action="analyze", description="One-sample t-test")
+
+        steps = state.procedure_recorder.get_steps()
+        assert len(steps) == 1
+        assert steps[0].action == "analyze"
+        assert steps[0].description == "One-sample t-test"
+
+    def test_explicit_params_win_even_with_history(self):
+        """Explicit params win even when history has a different last entry."""
+        from pyanalytica.core.state import WorkbenchState
+        import pandas as pd
+
+        state = WorkbenchState()
+        state.procedure_recorder.start_recording()
+
+        # Load two datasets
+        state.load("ds_a", pd.DataFrame({"x": [1]}))
+        state.load("ds_b", pd.DataFrame({"y": [2]}))
+
+        # Record with explicit params — should NOT show "Loaded dataset 'ds_b'"
+        snippet = CodeSnippet(code="fig = sns.heatmap(corr)", imports=["import seaborn as sns"])
+        state.codegen.record(snippet, action="visualize", description="Correlation plot")
+
+        steps = state.procedure_recorder.get_steps()
+        assert len(steps) == 1
+        assert steps[0].action == "visualize"
+        assert steps[0].description == "Correlation plot"
+        assert "sns.heatmap" in steps[0].code
+
+    def test_fallback_to_history_when_no_explicit_params(self):
+        """Without explicit params, falls back to history[-1] (existing behavior)."""
+        from pyanalytica.core.state import WorkbenchState
+        import pandas as pd
+
+        state = WorkbenchState()
+        state.procedure_recorder.start_recording()
+
+        state.load("test", pd.DataFrame({"x": [1, 2, 3]}))
+
+        # Record without explicit params — should use history
+        snippet = CodeSnippet(code="df = pd.read_csv('test.csv')", imports=["import pandas as pd"])
+        state.codegen.record(snippet)
+
+        steps = state.procedure_recorder.get_steps()
+        assert len(steps) == 1
+        assert steps[0].action == "load"
+        assert "Loaded dataset 'test'" in steps[0].description

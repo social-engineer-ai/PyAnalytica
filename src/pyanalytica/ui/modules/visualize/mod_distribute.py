@@ -117,7 +117,7 @@ def distribute_server(input, output, session, state: WorkbenchState, get_current
         else:
             return ui.div()
 
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="visualize", description="Distribution plot")
         last_code.set(snippet.code)
         _last_fig.set(fig)
         return ui.output_plot("chart", height="500px")

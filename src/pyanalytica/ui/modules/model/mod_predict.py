@@ -114,7 +114,7 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
                 result_df.insert(pred_idx, col_name, actual_values.values)
 
             pred_df.set(result_df)
-            state.codegen.record(snippet)
+            state.codegen.record(snippet, action="model", description="Prediction")
             last_code.set(snippet.code)
             ui.notification_show(
                 f"Predictions generated: {len(result_df)} rows.",

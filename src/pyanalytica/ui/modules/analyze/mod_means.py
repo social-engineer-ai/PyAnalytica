@@ -50,9 +50,20 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
     def test_controls():
         df = get_current_df()
         tt = input.test_type()
+        alt_select = ui.input_select("alternative", "Alternative Hypothesis",
+            choices={"two-sided": "Two-sided (!=)", "less": "Less (<)", "greater": "Greater (>)"})
         if tt == "one_sample":
-            return ui.input_numeric("mu", "Hypothesized Mean", value=0)
-        elif tt in ("two_sample", "anova"):
+            return ui.div(
+                ui.input_numeric("mu", "Hypothesized Mean", value=0),
+                alt_select,
+            )
+        elif tt == "two_sample":
+            cats = get_categorical_columns(df) if df is not None else []
+            return ui.div(
+                ui.input_select("group_col", "Group Variable", choices=cats),
+                alt_select,
+            )
+        elif tt == "anova":
             cats = get_categorical_columns(df) if df is not None else []
             return ui.input_select("group_col", "Group Variable", choices=cats)
         return ui.div()
@@ -67,16 +78,17 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
         tt = input.test_type()
 
         try:
+            alt = input.alternative() if tt in ("one_sample", "two_sample") else "two-sided"
             if tt == "one_sample":
-                result = one_sample_ttest(df, col, input.mu())
+                result = one_sample_ttest(df, col, input.mu(), alternative=alt)
             elif tt == "two_sample":
-                result = two_sample_ttest(df, col, input.group_col())
+                result = two_sample_ttest(df, col, input.group_col(), alternative=alt)
             elif tt == "anova":
                 result = one_way_anova(df, col, input.group_col())
             else:
                 return
             test_result_val.set(result)
-            state.codegen.record(result.code)
+            state.codegen.record(result.code, action="analyze", description=result.test_name)
             last_code.set(result.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")

@@ -59,7 +59,7 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
 
         normalize = input.normalize() or None
         ct_result = create_crosstab(df, row, col, normalize=normalize, margins=input.margins())
-        state.codegen.record(ct_result.code)
+        state.codegen.record(ct_result.code, action="explore", description="Cross-tabulation")
         last_code.set(ct_result.code.code)
         return ct_result
 

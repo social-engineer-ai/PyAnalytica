@@ -65,7 +65,7 @@ def pivot_server(input, output, session, state: WorkbenchState, get_current_df):
             margins=input.margins(),
             normalize=normalize,
         )
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="explore", description="Pivot table")
         last_code.set(snippet.code)
         return result_df.reset_index()
 

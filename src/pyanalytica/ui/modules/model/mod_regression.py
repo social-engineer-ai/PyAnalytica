@@ -69,7 +69,7 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
             seed = int(input.random_seed()) if input.random_seed() is not None else 42
             r = linear_regression(df, target, features, test_size=test_size, random_state=seed)
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="model", description="Linear regression")
             last_code.set(r.code.code)
 
             # Save model artifact

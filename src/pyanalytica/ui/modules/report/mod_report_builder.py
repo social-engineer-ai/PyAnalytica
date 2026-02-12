@@ -198,6 +198,7 @@ def report_builder_ui():
                     12,
                     ui.div(
                         ui.input_switch("show_code", "Show Code", value=True),
+                        ui.input_action_button("preview_btn", "Preview", class_="btn-info btn-sm"),
                         ui.download_button("dl_html", "HTML", class_="btn-outline-secondary btn-sm"),
                         ui.download_button("dl_jupyter", "Jupyter", class_="btn-outline-secondary btn-sm"),
                         ui.download_button("dl_json", "JSON", class_="btn-outline-secondary btn-sm"),
@@ -208,26 +209,10 @@ def report_builder_ui():
             ),
             class_="border-bottom pb-2 mb-2",
         ),
-        # --- Full-width tabs: Editor / Preview ---
-        ui.navset_tab(
-            ui.nav_panel(
-                "Editor",
-                ui.div(
-                    ui.output_ui("cell_editor"),
-                    style="max-height:75vh;overflow-y:auto;padding-top:8px;",
-                ),
-            ),
-            ui.nav_panel(
-                "Preview",
-                ui.div(
-                    ui.input_action_button(
-                        "refresh_preview", "Refresh Preview",
-                        class_="btn-outline-info btn-sm mb-2 mt-2",
-                    ),
-                    ui.output_ui("preview_panel"),
-                    style="max-height:75vh;overflow-y:auto;",
-                ),
-            ),
+        # --- Cell editor (full width, no tabs) ---
+        ui.div(
+            ui.output_ui("cell_editor"),
+            style="max-height:78vh;overflow-y:auto;padding-top:8px;",
         ),
     )
 
@@ -236,20 +221,12 @@ def report_builder_ui():
 def report_builder_server(input, output, session, state: WorkbenchState, get_current_df):
     builder = ReportBuilder()
     refresh = reactive.value(0)
-    preview_version = reactive.value(0)
 
     cell_cmd_id = session.ns("_cell_cmd")
     md_update_id = session.ns("_md_update")
 
     def _bump():
         refresh.set(refresh() + 1)
-
-    def _bump_preview():
-        preview_version.set(preview_version() + 1)
-
-    def _bump_all():
-        _bump()
-        _bump_preview()
 
     # --- Sync title/author ---
     @reactive.effect
@@ -273,7 +250,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
             return
         count = builder.import_from_recorder(recorder)
         ui.notification_show(f"Imported {count} code cells from procedure.", type="message")
-        _bump_all()
+        _bump()
 
     # --- Run All Cells ---
     @reactive.effect
@@ -290,27 +267,27 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
         if err:
             summary += f", {err} errors"
         ui.notification_show(summary, type="message" if err == 0 else "warning")
-        _bump_all()
+        _bump()
 
     # --- Add cells ---
     @reactive.effect
     @reactive.event(input.add_title_cell)
     def _add_title():
         builder.add_title_cell()
-        _bump_all()
+        _bump()
 
     @reactive.effect
     @reactive.event(input.add_text_cell)
     def _add_text():
         builder.add_markdown_cell(markdown="Enter your text here...")
-        _bump_all()
+        _bump()
 
     # --- Clear ---
     @reactive.effect
     @reactive.event(input.clear_report)
     def _clear():
         builder.clear()
-        _bump_all()
+        _bump()
 
     # --- Cell commands (delete/toggle/up/down/insert_after) ---
     @reactive.effect
@@ -341,7 +318,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
                     builder.move_cell(cell.id, "up")
             else:
                 builder.add_markdown_cell(after_cell_id=cell_id, markdown="")
-        _bump_all()
+        _bump()
 
     # --- Markdown update ---
     @reactive.effect
@@ -356,11 +333,30 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
         except (json.JSONDecodeError, KeyError):
             pass
 
-    # --- Manual preview refresh ---
+    # --- Preview in modal ---
     @reactive.effect
-    @reactive.event(input.refresh_preview)
-    def _refresh():
-        _bump_preview()
+    @reactive.event(input.preview_btn)
+    def _show_preview():
+        if builder.cell_count() == 0:
+            ui.notification_show("No cells to preview.", type="warning")
+            return
+        builder.title = input.rpt_title().strip() or "PyAnalytica Report"
+        builder.author = input.rpt_author().strip()
+        builder.execute_all(get_current_df())
+        html_content = export_report_html(builder, show_code=input.show_code())
+        escaped_html = html_content.replace("&", "&amp;").replace('"', "&quot;")
+        iframe = (
+            f'<iframe srcdoc="{escaped_html}" '
+            f'style="width:100%;height:80vh;border:none;background:#fff;"></iframe>'
+        )
+        m = ui.modal(
+            ui.HTML(iframe),
+            title="Report Preview",
+            size="xl",
+            easy_close=True,
+            footer=ui.modal_button("Close"),
+        )
+        ui.modal_show(m)
 
     # --- Import JSON ---
     @reactive.effect
@@ -379,7 +375,7 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
                 f"Loaded report '{builder.title}' ({builder.cell_count()} cells).",
                 type="message",
             )
-            _bump_all()
+            _bump()
         except Exception as e:
             ui.notification_show(f"Import error: {e}", type="error")
 
@@ -410,36 +406,12 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
             *parts,
         )
 
-    # --- Live Preview ---
-    @render.ui
-    def preview_panel():
-        refresh()
-        preview_version()
-        show_code = input.show_code()
-        builder.title = input.rpt_title().strip() or "PyAnalytica Report"
-        builder.author = input.rpt_author().strip()
-
-        if builder.cell_count() == 0:
-            return ui.div(
-                ui.p("Preview will appear here once cells are added.", class_="text-muted"),
-                class_="text-center py-4",
-            )
-
-        html_content = export_report_html(builder, show_code=show_code)
-        escaped_html = html_content.replace("&", "&amp;").replace('"', "&quot;")
-        iframe = (
-            f'<iframe srcdoc="{escaped_html}" '
-            f'style="width:100%;height:75vh;border:1px solid #e0e0e0;'
-            f'border-radius:6px;background:#fff;" '
-            f'sandbox="allow-same-origin"></iframe>'
-        )
-        return ui.HTML(iframe)
-
     # --- Downloads ---
     @render.download(filename="report.html")
     def dl_html():
         builder.title = input.rpt_title().strip() or "PyAnalytica Report"
         builder.author = input.rpt_author().strip()
+        builder.execute_all(get_current_df())
         yield export_report_html(builder, show_code=input.show_code()).encode("utf-8")
 
     @render.download(filename="report.ipynb")

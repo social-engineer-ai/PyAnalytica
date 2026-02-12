@@ -63,7 +63,7 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
         else:
             fig, snippet = pair_plot(df, cols)
 
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="visualize", description="Correlation plot")
         last_code.set(snippet.code)
         _last_fig.set(fig)
         return fig

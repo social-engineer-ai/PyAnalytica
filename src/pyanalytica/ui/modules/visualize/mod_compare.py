@@ -79,7 +79,7 @@ def compare_server(input, output, session, state: WorkbenchState, get_current_df
         else:
             return
 
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="visualize", description="Comparison plot")
         last_code.set(snippet.code)
         _last_fig.set(fig)
         return fig

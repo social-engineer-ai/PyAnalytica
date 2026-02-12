@@ -77,7 +77,7 @@ def timeline_server(input, output, session, state: WorkbenchState, get_current_d
             chart_type=input.chart_type(),
             rolling_window=rolling,
         )
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="visualize", description="Time series plot")
         last_code.set(snippet.code)
         _last_fig.set(fig)
         return fig

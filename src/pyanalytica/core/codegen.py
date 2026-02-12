@@ -25,17 +25,23 @@ class CodeGenerator:
         self.snippets: list[CodeSnippet] = []
         self._on_record: Callable[[CodeSnippet], None] | None = None
 
-    def set_on_record(self, callback: Callable[[CodeSnippet], None]) -> None:
+    def set_on_record(self, callback: Callable[..., None]) -> None:
         """Set a callback invoked on every record() call (for procedure recording)."""
         self._on_record = callback
 
-    def record(self, snippet: CodeSnippet) -> None:
-        """Record a code snippet and its imports."""
+    def record(self, snippet: CodeSnippet, *, action: str | None = None,
+               description: str | None = None) -> None:
+        """Record a code snippet and its imports.
+
+        Optional *action* and *description* are forwarded to the on-record
+        callback so that procedure steps get the correct metadata even when
+        the caller hasn't pushed an entry into WorkbenchState.history.
+        """
         for imp in snippet.imports:
             self.imports.add(imp)
         self.snippets.append(snippet)
         if self._on_record is not None:
-            self._on_record(snippet)
+            self._on_record(snippet, action=action, description=description)
 
     def export_script(self) -> str:
         """Export the full accumulated script as runnable Python."""

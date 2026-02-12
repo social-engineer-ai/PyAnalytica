@@ -58,7 +58,7 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
         try:
             r = chi_square_test(df, row, col)
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="analyze", description="Chi-square test")
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")

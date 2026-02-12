@@ -43,12 +43,18 @@ class WorkbenchState:
         self._change_counter = 0
 
         # Auto-forward codegen records to the procedure recorder
-        def _on_codegen_record(snippet: CodeSnippet) -> None:
-            if self.history:
-                last = self.history[-1]
-                self.procedure_recorder.record_step(last.action, last.description, snippet)
-            else:
-                self.procedure_recorder.record_step("unknown", "Recorded operation", snippet)
+        def _on_codegen_record(snippet: CodeSnippet, *, action: str | None = None,
+                               description: str | None = None) -> None:
+            # Prefer explicit params; fall back to last history entry
+            if action is None or description is None:
+                if self.history:
+                    last = self.history[-1]
+                    action = action or last.action
+                    description = description or last.description
+                else:
+                    action = action or "unknown"
+                    description = description or "Recorded operation"
+            self.procedure_recorder.record_step(action, description, snippet)
 
         self.codegen.set_on_record(_on_codegen_record)
 

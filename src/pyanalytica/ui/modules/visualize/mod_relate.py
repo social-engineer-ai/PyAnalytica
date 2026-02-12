@@ -86,7 +86,7 @@ def relate_server(input, output, session, state: WorkbenchState, get_current_df)
         else:
             fig, snippet = hexbin(df, x, y)
 
-        state.codegen.record(snippet)
+        state.codegen.record(snippet, action="visualize", description="Scatter plot")
         last_code.set(snippet.code)
         _last_fig.set(fig)
         return fig

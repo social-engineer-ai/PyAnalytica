@@ -51,7 +51,7 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
         try:
             r = pca_analysis(df, features)
             result.set(r)
-            state.codegen.record(r.code)
+            state.codegen.record(r.code, action="model", description="PCA")
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
