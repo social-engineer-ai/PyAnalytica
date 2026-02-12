@@ -21,4 +21,4 @@ Quick start (library)::
     fig, code = histogram(df, "total_bill")
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
