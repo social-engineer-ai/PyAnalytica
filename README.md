@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-3776ab?logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-667eea.svg)]()
+[![Version](https://img.shields.io/badge/version-0.3.0-667eea.svg)](https://pypi.org/project/pyanalytica/)
 [![Shiny](https://img.shields.io/badge/built%20with-Shiny%20for%20Python-764ba2.svg)](https://shiny.posit.co/py/)
 [![Tests](https://img.shields.io/badge/tests-274%20passing-22c55e.svg)]()
 
@@ -106,23 +106,25 @@ from pyanalytica.core.codegen import CodeSnippet
 
 ```bash
 # Core package (Shiny UI + all analytics)
-pip install git+https://github.com/social-engineer-ai/PyAnalytica.git
+pip install pyanalytica
 
 # With AI integration (Anthropic Claude)
-pip install "pyanalytica[ai] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
+pip install "pyanalytica[ai]"
 
 # With Jupyter notebook export
-pip install "pyanalytica[report] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
+pip install "pyanalytica[report]"
 
-# Everything
-pip install "pyanalytica[all] @ git+https://github.com/social-engineer-ai/PyAnalytica.git"
+# Everything (recommended)
+pip install "pyanalytica[all]"
 ```
 
 To update to the latest version:
 
 ```bash
-pip install --upgrade git+https://github.com/social-engineer-ai/PyAnalytica.git
+pip install --upgrade pyanalytica
 ```
+
+> **Switching from a GitHub install?** Run `pip uninstall pyanalytica` first, then install from PyPI above.
 
 ### Install from source (for development)
 
