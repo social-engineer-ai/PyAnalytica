@@ -134,15 +134,25 @@ def _step_card_html(
         f'</div>'
     )
 
+    # Dataset tag
+    dataset_tag = ""
+    if s.dataset:
+        dataset_tag = (
+            f'<span style="display:inline-block;padding:1px 6px;border-radius:3px;'
+            f'font-size:0.7rem;background:#e8eaf6;color:#283593;margin-left:6px;'
+            f'font-weight:500;">{_esc(s.dataset)}</span>'
+        )
+
     return (
         f'<div style="border:1px solid #e0e0e0;border-left:4px solid {border_color};'
         f'border-radius:6px;padding:10px 14px;margin-bottom:12px;'
         f'background:#fff;opacity:{opacity};transition:opacity 0.2s ease;'
         f'box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-        # Header: badge + step number + action buttons
+        # Header: badge + step number + dataset tag + action buttons
         f'<div style="display:flex;align-items:center;justify-content:space-between;">'
         f'<div>{_badge_html(s.action)}'
-        f'<span style="font-weight:600;margin-left:8px;">Step {s.order}</span></div>'
+        f'<span style="font-weight:600;margin-left:8px;">Step {s.order}</span>'
+        f'{dataset_tag}</div>'
         f'<div>{btn_row}</div>'
         f'</div>'
         # Description

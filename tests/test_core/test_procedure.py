@@ -250,3 +250,44 @@ class TestCodegenIntegration:
         assert len(steps) == 1
         assert steps[0].action == "load"
         assert "Loaded dataset 'test'" in steps[0].description
+
+    def test_dataset_field_recorded_from_history(self):
+        """record_step captures dataset name from history."""
+        from pyanalytica.core.state import WorkbenchState
+        import pandas as pd
+
+        state = WorkbenchState()
+        state.procedure_recorder.start_recording()
+
+        state.load("tips", pd.DataFrame({"x": [1, 2]}))
+        snippet = CodeSnippet(code="df['x'] = df['x'] * 2", imports=["import pandas as pd"])
+        state.codegen.record(snippet)
+
+        steps = state.procedure_recorder.get_steps()
+        assert len(steps) == 1
+        assert steps[0].dataset == "tips"
+
+    def test_dataset_field_in_json_roundtrip(self):
+        """dataset field survives JSON export/import."""
+        rec = ProcedureRecorder()
+        rec.start_recording()
+        step = rec.record_step("load", "Load CSV", _snippet(), dataset="tips")
+        assert step.dataset == "tips"
+
+        proc = rec.build_procedure("Test", "Test")
+        json_str = ProcedureRecorder.export_json(proc)
+        loaded = ProcedureRecorder.import_json(json_str)
+        assert loaded.steps[0].dataset == "tips"
+
+    def test_dataset_header_in_python_export(self):
+        """Python export includes dataset headers when dataset changes."""
+        rec = ProcedureRecorder()
+        rec.start_recording()
+        rec.record_step("load", "Load tips", _snippet("df = pd.read_csv('tips.csv')"), dataset="tips")
+        rec.record_step("transform", "Clean", _snippet("df = df.dropna()"), dataset="tips")
+        rec.record_step("load", "Load diamonds", _snippet("df = pd.read_csv('diamonds.csv')"), dataset="diamonds")
+
+        proc = rec.build_procedure("Mixed", "Mixed datasets")
+        script = ProcedureRecorder.export_python(proc)
+        assert "# --- Dataset: tips ---" in script
+        assert "# --- Dataset: diamonds ---" in script

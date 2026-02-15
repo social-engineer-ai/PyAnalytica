@@ -248,6 +248,39 @@ def str_extract(
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
+# --- Encoding ---
+
+def dummy_encode(
+    df: pd.DataFrame, column: str, drop_first: bool = False
+) -> tuple[pd.DataFrame, CodeSnippet]:
+    """One-hot / dummy encode a categorical column."""
+    result = pd.get_dummies(df, columns=[column], drop_first=drop_first)
+    drop_str = ", drop_first=True" if drop_first else ""
+    code = f'df = pd.get_dummies(df, columns=["{column}"]{drop_str})'
+    return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+
+def ordinal_encode(
+    df: pd.DataFrame, column: str, order: list[str] | None = None
+) -> tuple[pd.DataFrame, CodeSnippet]:
+    """Map categories to integers (0, 1, 2, ...).
+
+    If *order* is given, categories are mapped in that order.
+    Otherwise, sorted unique values are used.
+    """
+    result = df.copy()
+    if order is None:
+        order = sorted(result[column].dropna().unique())
+    mapping = {val: i for i, val in enumerate(order)}
+    result[column] = result[column].map(mapping)
+
+    code = (
+        f'{column}_map = {mapping!r}\n'
+        f'df["{column}"] = df["{column}"].map({column}_map)'
+    )
+    return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+
 def _repr_val(val: Any) -> str:
     """Represent a value for code generation."""
     if isinstance(val, str):

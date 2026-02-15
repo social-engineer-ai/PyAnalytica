@@ -5,6 +5,7 @@ from __future__ import annotations
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
+from pyanalytica.core.codegen import CodeSnippet
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
@@ -46,6 +47,17 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
     filters = reactive.value([])
     last_code = reactive.value("")
     get_dec = decimals_server("dec")
+    _prev_dataset_id = reactive.value(None)
+
+    @reactive.effect
+    def _reset_on_dataset_change():
+        df = get_current_df()
+        new_id = id(df) if df is not None else None
+        if new_id != _prev_dataset_id():
+            _prev_dataset_id.set(new_id)
+            filters.set([])
+            last_code.set("")
+            ui.update_select("sort_col", selected="")
 
     @reactive.effect
     def _update_cols():
@@ -112,6 +124,11 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
                     timestamp=datetime.now(), action="filter",
                     description=f"Applied filters to '{name}'", dataset=name,
                 ))
+                code = last_code()
+                if code:
+                    snippet = CodeSnippet(code=code, imports=["import pandas as pd"])
+                    state.codegen.record(snippet, action="filter",
+                                         description=f"Applied filters to '{name}'")
                 ui.notification_show(f"Filters applied to '{name}'", type="message")
                 break
 

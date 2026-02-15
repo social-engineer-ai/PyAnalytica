@@ -11,7 +11,9 @@ from pyanalytica.data.transform import (
     convert_dtype,
     drop_duplicates,
     drop_missing,
+    dummy_encode,
     fill_missing,
+    ordinal_encode,
     str_lower,
     str_strip,
     str_upper,
@@ -96,3 +98,57 @@ def test_str_upper(df):
 def test_str_strip(df):
     result, _ = str_strip(df, "b")
     assert result.loc[0, "b"] == "Hello"
+
+
+# --- Encoding tests ---
+
+def test_dummy_encode_basic():
+    df = pd.DataFrame({"color": ["red", "blue", "green", "red"]})
+    result, snippet = dummy_encode(df, "color")
+    assert "color" not in result.columns
+    assert "color_red" in result.columns
+    assert "color_blue" in result.columns
+    assert "color_green" in result.columns
+    assert "get_dummies" in snippet.code
+
+
+def test_dummy_encode_drop_first():
+    df = pd.DataFrame({"color": ["red", "blue", "green", "red"]})
+    result, snippet = dummy_encode(df, "color", drop_first=True)
+    # One less dummy column when drop_first=True
+    dummy_cols = [c for c in result.columns if c.startswith("color_")]
+    assert len(dummy_cols) == 2
+    assert "drop_first=True" in snippet.code
+
+
+def test_dummy_encode_preserves_other_columns():
+    df = pd.DataFrame({"x": [1, 2, 3], "color": ["a", "b", "a"]})
+    result, _ = dummy_encode(df, "color")
+    assert "x" in result.columns
+    assert len(result) == 3
+
+
+def test_ordinal_encode_auto_order():
+    df = pd.DataFrame({"size": ["medium", "small", "large", "small"]})
+    result, snippet = ordinal_encode(df, "size")
+    # Sorted order: large=0, medium=1, small=2
+    assert result.loc[0, "size"] == 1  # medium
+    assert result.loc[1, "size"] == 2  # small
+    assert result.loc[2, "size"] == 0  # large
+    assert "map" in snippet.code
+
+
+def test_ordinal_encode_custom_order():
+    df = pd.DataFrame({"size": ["medium", "small", "large", "small"]})
+    result, snippet = ordinal_encode(df, "size", order=["small", "medium", "large"])
+    assert result.loc[0, "size"] == 1  # medium
+    assert result.loc[1, "size"] == 0  # small
+    assert result.loc[2, "size"] == 2  # large
+
+
+def test_ordinal_encode_with_nan():
+    df = pd.DataFrame({"size": ["small", None, "large"]})
+    result, _ = ordinal_encode(df, "size")
+    assert pd.isna(result.loc[1, "size"])
+    assert result.loc[0, "size"] == 1  # small (sorted: large=0, small=1)
+    assert result.loc[2, "size"] == 0  # large

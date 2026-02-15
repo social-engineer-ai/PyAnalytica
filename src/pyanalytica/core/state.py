@@ -46,15 +46,22 @@ class WorkbenchState:
         def _on_codegen_record(snippet: CodeSnippet, *, action: str | None = None,
                                description: str | None = None) -> None:
             # Prefer explicit params; fall back to last history entry
+            dataset = ""
             if action is None or description is None:
                 if self.history:
                     last = self.history[-1]
                     action = action or last.action
                     description = description or last.description
+                    dataset = last.dataset
                 else:
                     action = action or "unknown"
                     description = description or "Recorded operation"
-            self.procedure_recorder.record_step(action, description, snippet)
+            else:
+                # Try to get dataset from latest history entry
+                if self.history:
+                    dataset = self.history[-1].dataset
+            self.procedure_recorder.record_step(action, description, snippet,
+                                                dataset=dataset)
 
         self.codegen.set_on_record(_on_codegen_record)
 

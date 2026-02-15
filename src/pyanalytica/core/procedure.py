@@ -21,6 +21,7 @@ class ProcedureStep:
     imports: list[str] = field(default_factory=list)
     enabled: bool = True
     user_comment: str = ""
+    dataset: str = ""  # Which dataset this step operates on
 
 
 @dataclass
@@ -49,7 +50,8 @@ class ProcedureRecorder:
     def is_recording(self) -> bool:
         return self._recording
 
-    def record_step(self, action: str, description: str, code_snippet: CodeSnippet) -> ProcedureStep | None:
+    def record_step(self, action: str, description: str, code_snippet: CodeSnippet,
+                    dataset: str = "") -> ProcedureStep | None:
         """Record a step if recording is active. Returns the step or None."""
         if not self._recording:
             return None
@@ -59,6 +61,7 @@ class ProcedureRecorder:
             description=description,
             code=code_snippet.code,
             imports=list(code_snippet.imports),
+            dataset=dataset,
         )
         self._steps.append(step)
         return step
@@ -129,6 +132,7 @@ class ProcedureRecorder:
                     "imports": s.imports,
                     "enabled": s.enabled,
                     "user_comment": s.user_comment,
+                    "dataset": s.dataset,
                 }
                 for s in procedure.steps
             ],
@@ -150,6 +154,7 @@ class ProcedureRecorder:
                 imports=s.get("imports", []),
                 enabled=s.get("enabled", True),
                 user_comment=s.get("user_comment", ""),
+                dataset=s.get("dataset", ""),
             ))
         return Procedure(
             name=data.get("name", ""),
@@ -164,16 +169,23 @@ class ProcedureRecorder:
         """Export a procedure as a runnable Python script."""
         all_imports: set[str] = {"import pandas as pd"}
         code_blocks: list[str] = []
+        current_dataset = ""
 
         for step in procedure.steps:
             if not step.enabled:
                 continue
             for imp in step.imports:
                 all_imports.add(imp)
+            # Add dataset header when dataset changes between steps
+            lines = []
+            if step.dataset and step.dataset != current_dataset:
+                lines.append(f"# --- Dataset: {step.dataset} ---")
+                current_dataset = step.dataset
             comment = f"# Step {step.order}: {step.description}"
             if step.user_comment:
                 comment += f"\n# Note: {step.user_comment}"
-            code_blocks.append(f"{comment}\n{step.code}")
+            lines.append(f"{comment}\n{step.code}")
+            code_blocks.append("\n".join(lines))
 
         header = sorted(all_imports)
         script = (
@@ -222,9 +234,18 @@ class ProcedureRecorder:
         })
 
         # Step cells
+        current_dataset = ""
         for step in procedure.steps:
             if not step.enabled:
                 continue
+            # Dataset header when dataset changes
+            if step.dataset and step.dataset != current_dataset:
+                cells.append({
+                    "cell_type": "markdown",
+                    "metadata": {},
+                    "source": [f"---\n", f"### Dataset: {step.dataset}\n"],
+                })
+                current_dataset = step.dataset
             # Markdown description
             desc = f"## Step {step.order}: {step.description}"
             if step.user_comment:

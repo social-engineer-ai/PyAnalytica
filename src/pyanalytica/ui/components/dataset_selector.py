@@ -17,6 +17,7 @@ def dataset_selector_ui():
             choices=["(none)"],
             width="250px",
         ),
+        ui.input_action_link("remove_dataset", "Remove", class_="text-danger small"),
         class_="d-flex align-items-center gap-3",
     )
 
@@ -33,6 +34,20 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
         names = state.dataset_names()
         choices = names if names else ["(none)"]
         ui.update_select("dataset", choices=choices)
+
+    @reactive.effect
+    @reactive.event(input.remove_dataset)
+    def _remove_dataset():
+        name = input.dataset()
+        if not name or name == "(none)":
+            return
+        state.remove(name)
+        remaining = state.dataset_names()
+        if remaining:
+            ui.update_select("dataset", choices=remaining, selected=remaining[0])
+        else:
+            ui.update_select("dataset", choices=["(none)"], selected="(none)")
+        ui.notification_show(f"Removed dataset '{name}'", type="message")
 
     @reactive.calc
     def selected_name() -> str:
