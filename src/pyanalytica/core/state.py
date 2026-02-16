@@ -23,6 +23,9 @@ class Operation:
     details: dict = field(default_factory=dict)
 
 
+MAX_UNDO = 20  # Maximum number of undo snapshots to keep in memory
+
+
 class WorkbenchState:
     """Stores loaded datasets and operation history. No UI logic.
 
@@ -94,6 +97,9 @@ class WorkbenchState:
         """Update a dataset and record the operation."""
         if name in self.datasets:
             self._history_stack.append((name, self.datasets[name].copy()))
+            # Cap undo stack to prevent unbounded memory growth
+            if len(self._history_stack) > MAX_UNDO:
+                self._history_stack = self._history_stack[-MAX_UNDO:]
         self.datasets[name] = df
         self.history.append(operation)
         self._notify()

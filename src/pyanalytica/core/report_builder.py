@@ -162,7 +162,27 @@ class ReportBuilder:
         import numpy as np
         import pandas as _pd
 
+        # Restrict builtins to prevent access to dangerous functions
+        _safe_builtins = {
+            k: v for k, v in __builtins__.items()
+            if k not in (
+                "__import__", "exec", "eval", "compile",
+                "open", "input", "breakpoint", "exit", "quit",
+                "getattr", "setattr", "delattr", "globals", "locals",
+                "vars", "memoryview", "classmethod", "staticmethod",
+            )
+        } if isinstance(__builtins__, dict) else {
+            k: getattr(__builtins__, k) for k in dir(__builtins__)
+            if k not in (
+                "__import__", "exec", "eval", "compile",
+                "open", "input", "breakpoint", "exit", "quit",
+                "getattr", "setattr", "delattr", "globals", "locals",
+                "vars", "memoryview", "classmethod", "staticmethod",
+            ) and not k.startswith("_")
+        }
+
         namespace: dict = {
+            "__builtins__": _safe_builtins,
             "pd": _pd,
             "np": np,
             "plt": plt,

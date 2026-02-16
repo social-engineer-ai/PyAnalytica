@@ -10,6 +10,26 @@ import pandas as pd
 from pyanalytica.core.codegen import CodeSnippet
 
 
+# --- Expression validation ---
+
+_FORBIDDEN_PATTERNS = (
+    "__", "import", "exec", "eval", "compile", "open", "getattr",
+    "setattr", "delattr", "globals", "locals", "vars", "dir",
+    "breakpoint", "exit", "quit", "input", "print",
+)
+
+
+def _validate_expr(expr: str) -> None:
+    """Reject expressions containing dangerous patterns for df.eval()."""
+    lowered = expr.lower().replace(" ", "")
+    for pattern in _FORBIDDEN_PATTERNS:
+        if pattern in lowered:
+            raise ValueError(
+                f"Expression contains forbidden pattern '{pattern}'. "
+                "Only arithmetic on column names is allowed."
+            )
+
+
 # --- Missing values ---
 
 def fill_missing(
@@ -132,8 +152,9 @@ def add_column_arithmetic(
     """Add a new column from an arithmetic expression using existing columns.
 
     expr should reference columns by name, e.g. "salary * 12" or "revenue - cost"
-    The expression is evaluated safely using DataFrame.eval().
+    The expression is evaluated using DataFrame.eval() with input validation.
     """
+    _validate_expr(expr)
     result = df.copy()
     result[new_col] = result.eval(expr)
     code = f'df["{new_col}"] = df.eval("{expr}")'
@@ -148,6 +169,7 @@ def add_column_conditional(
 
     condition: pandas eval expression, e.g. "salary > 50000"
     """
+    _validate_expr(condition)
     result = df.copy()
     mask = result.eval(condition)
     result[new_col] = np.where(mask, true_val, false_val)

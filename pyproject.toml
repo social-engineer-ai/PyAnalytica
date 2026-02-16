@@ -45,8 +45,9 @@ Issues = "https://github.com/social-engineer-ai/PyAnalytica/issues"
 [project.optional-dependencies]
 ai = ["anthropic>=0.20"]
 report = ["nbformat>=5.9"]
+tutorial = ["playwright>=1.40", "edge-tts>=6.1"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "playwright>=1.40"]
-all = ["anthropic>=0.20", "nbformat>=5.9"]
+all = ["anthropic>=0.20", "nbformat>=5.9", "playwright>=1.40", "edge-tts>=6.1"]
 
 [project.scripts]
 pyanalytica = "pyanalytica.ui.app:main"

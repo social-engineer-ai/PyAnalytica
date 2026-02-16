@@ -12,9 +12,7 @@ Quick start (web app)::
 
 Quick start (library)::
 
-    from pyanalytica.data.load import load_bundled
-    from pyanalytica.data.profile import profile_dataframe
-    from pyanalytica.visualize.distribute import histogram
+    from pyanalytica import load_bundled, profile_dataframe, histogram
 
     df, code = load_bundled("tips")
     profile = profile_dataframe(df)
@@ -22,3 +20,51 @@ Quick start (library)::
 """
 
 __version__ = "0.3.0"
+
+# Core types
+from pyanalytica.core.codegen import CodeSnippet
+from pyanalytica.core.types import ColumnType, classify_column, classify_columns
+
+# Data loading and profiling
+from pyanalytica.data.load import load_bundled, load_csv, load_excel, load_from_bytes, load_url
+from pyanalytica.data.profile import DataProfile, profile_column, profile_dataframe
+
+# Exploration
+from pyanalytica.explore.summarize import group_summarize
+from pyanalytica.explore.pivot import create_pivot_table
+from pyanalytica.explore.crosstab import create_crosstab
+
+# Visualization
+from pyanalytica.visualize.distribute import bar_chart, boxplot, histogram, violin
+from pyanalytica.visualize.relate import hexbin, scatter
+from pyanalytica.visualize.correlate import correlation_matrix, pair_plot
+
+# Statistical analysis
+from pyanalytica.analyze.correlation import correlation_test
+from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
+from pyanalytica.analyze.proportions import chi_square_test
+
+# Modeling
+from pyanalytica.model.regression import linear_regression
+from pyanalytica.model.classify import decision_tree, logistic_regression
+from pyanalytica.model.cluster import kmeans_cluster
+from pyanalytica.model.reduce import pca_analysis
+
+__all__ = [
+    # Core
+    "CodeSnippet", "ColumnType", "classify_column", "classify_columns",
+    # Data
+    "load_csv", "load_excel", "load_url", "load_bundled", "load_from_bytes",
+    "profile_dataframe", "profile_column", "DataProfile",
+    # Explore
+    "group_summarize", "create_pivot_table", "create_crosstab",
+    # Visualize
+    "histogram", "boxplot", "violin", "bar_chart",
+    "scatter", "hexbin", "correlation_matrix", "pair_plot",
+    # Analyze
+    "correlation_test", "one_sample_ttest", "two_sample_ttest",
+    "one_way_anova", "chi_square_test",
+    # Model
+    "linear_regression", "logistic_regression", "decision_tree",
+    "kmeans_cluster", "pca_analysis",
+]

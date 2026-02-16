@@ -19,35 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pyanalytica.core.profile import get_api_key
-
-
-# ---------------------------------------------------------------------------
-# LLM helper (optional -- never crashes if anthropic is missing)
-# ---------------------------------------------------------------------------
-
-def _try_llm(prompt: str) -> str | None:
-    """Attempt to get an LLM-enhanced response from Claude.
-
-    Returns the response text on success, or ``None`` if the anthropic
-    package is not installed or the API key is not configured.
-    """
-    api_key = get_api_key()
-    if not api_key:
-        return None
-    try:
-        import anthropic  # type: ignore[import-untyped]
-
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return message.content[0].text
-    except Exception:
-        # Any failure (missing package, network error, bad key) -- fall back
-        return None
+from pyanalytica.ai._llm import try_llm as _try_llm
 
 
 # ---------------------------------------------------------------------------
