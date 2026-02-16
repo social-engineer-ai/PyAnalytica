@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
+if TYPE_CHECKING:
+    from pyanalytica.core.extensions import DatasetSpec
+
+logger = logging.getLogger(__name__)
+
 _DATASETS_DIR = Path(__file__).parent
+
+# Extension datasets registered via register_extension_datasets()
+_extension_datasets: dict[str, DatasetSpec] = {}
 
 _DATASET_INFO: dict[str, dict] = {
     "diamonds": {
@@ -46,9 +56,30 @@ _DATASET_INFO: dict[str, dict] = {
 }
 
 
+def register_extension_datasets(datasets: list[DatasetSpec]) -> None:
+    """Merge extension datasets into the available dataset list.
+
+    Built-in dataset names cannot be overridden by extensions.
+    """
+    for ds in datasets:
+        if ds.name in _DATASET_INFO:
+            logger.warning(
+                "Extension dataset %r skipped: conflicts with built-in dataset",
+                ds.name,
+            )
+            continue
+        if ds.name in _extension_datasets:
+            logger.warning(
+                "Extension dataset %r skipped: already registered by another extension",
+                ds.name,
+            )
+            continue
+        _extension_datasets[ds.name] = ds
+
+
 def list_datasets() -> list[str]:
-    """List all available bundled dataset names."""
-    return sorted(_DATASET_INFO.keys())
+    """List all available dataset names (built-in + extensions)."""
+    return sorted(set(_DATASET_INFO.keys()) | set(_extension_datasets.keys()))
 
 
 def load_dataset(name: str) -> pd.DataFrame:
@@ -60,6 +91,9 @@ def load_dataset(name: str) -> pd.DataFrame:
         )
 
     if name not in _DATASET_INFO:
+        # Check extension datasets before raising
+        if name in _extension_datasets:
+            return _extension_datasets[name].loader()
         available = ", ".join(list_datasets())
         raise ValueError(f"Unknown dataset '{name}'. Available: {available}")
 
@@ -81,10 +115,20 @@ def load_dataset(name: str) -> pd.DataFrame:
 
 
 def get_dataset_info(name: str) -> dict:
-    """Get metadata about a bundled dataset."""
-    if name not in _DATASET_INFO:
+    """Get metadata about a dataset (built-in or extension)."""
+    if name in _DATASET_INFO:
+        info = _DATASET_INFO[name].copy()
+    elif name in _extension_datasets:
+        ds = _extension_datasets[name]
+        info = {
+            "description": ds.description,
+            "source": ds.source,
+            "extension": True,
+        }
+        if ds.group:
+            info["group"] = ds.group
+    else:
         raise ValueError(f"Unknown dataset: {name}")
-    info = _DATASET_INFO[name].copy()
 
     # Try to add row/col counts
     try:
@@ -92,7 +136,7 @@ def get_dataset_info(name: str) -> dict:
         info["rows"] = df.shape[0]
         info["cols"] = df.shape[1]
         info["columns"] = list(df.columns)
-    except FileNotFoundError:
+    except (FileNotFoundError, Exception):
         pass
 
     return info
