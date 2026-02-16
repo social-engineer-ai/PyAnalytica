@@ -182,6 +182,14 @@ def procedure_ui():
             ui.input_action_button(
                 "clear_steps", "Clear Steps", class_="btn-outline-danger w-100 mt-1",
             ),
+            ui.tags.script(ui.HTML("""
+                $(document).on('click', '[id$="clear_steps"]', function(e) {
+                    if (!confirm('Clear all recorded steps? This cannot be undone.')) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                    }
+                });
+            """)),
             ui.tags.hr(),
             ui.h6("Import / Export"),
             ui.input_file("import_file", "Load Procedure (JSON)", accept=[".json"]),

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 
@@ -60,7 +62,7 @@ def predict_from_artifact(
                     result_df[col_name] = np.nan
                     result_df.loc[valid_mask, col_name] = proba[:, i]
         except Exception:
-            pass
+            logging.getLogger(__name__).warning("predict_proba failed", exc_info=True)
 
     # Generate code snippet
     feats_str = repr(artifact.feature_names)

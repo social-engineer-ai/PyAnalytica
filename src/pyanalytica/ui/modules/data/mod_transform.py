@@ -35,7 +35,8 @@ def transform_ui():
                 "str_strip": "String: Strip Whitespace",
             }),
             ui.output_ui("action_controls"),
-            ui.input_action_button("apply_btn", "Apply", class_="btn-primary w-100 mt-2"),
+            ui.input_action_button("preview_btn", "Preview", class_="btn-outline-info w-100 mt-2"),
+            ui.input_action_button("apply_btn", "Apply", class_="btn-primary w-100 mt-1"),
             width=320,
         ),
         ui.output_text("transform_info"),
@@ -50,6 +51,7 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
     last_code = reactive.value("")
     get_dec = decimals_server("dec")
     _prev_ds_id = reactive.value(None)
+    _preview_result = reactive.value(None)  # (df, snippet) or None
 
     @reactive.effect
     def _track_dataset_change():
@@ -58,6 +60,7 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         new_id = id(df) if df is not None else None
         if new_id != _prev_ds_id():
             _prev_ds_id.set(new_id)
+            _preview_result.set(None)
 
     @render.ui
     def action_controls():
@@ -98,6 +101,72 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
 
         return ui.TagList(*controls)
 
+    def _run_transform(df):
+        """Execute the current transform settings. Returns (result_df, snippet) or raises."""
+        action = input.action()
+
+        if action == "drop_columns":
+            drop_cols = list(input.drop_cols())
+            req(len(drop_cols) > 0)
+            return transform.drop_columns(df, drop_cols)
+
+        col = input.col()
+        req(col)
+
+        if action == "fill_missing":
+            method = input.fill_method()
+            val = input.fill_value() if method == "value" else None
+            return transform.fill_missing(df, col, method, val)
+        elif action == "drop_missing":
+            return transform.drop_missing(df, [col])
+        elif action == "convert_dtype":
+            return transform.convert_dtype(df, col, input.target_dtype())
+        elif action == "drop_duplicates":
+            return transform.drop_duplicates(df, [col])
+        elif action == "add_log":
+            new_name = input.new_col_name() or f"{col}_log"
+            return transform.add_column_log(df, new_name, col)
+        elif action == "add_zscore":
+            new_name = input.new_col_name() or f"{col}_zscore"
+            return transform.add_column_zscore(df, new_name, col)
+        elif action == "add_rank":
+            new_name = input.new_col_name() or f"{col}_rank"
+            return transform.add_column_rank(df, new_name, col)
+        elif action == "str_lower":
+            return transform.str_lower(df, col)
+        elif action == "str_upper":
+            return transform.str_upper(df, col)
+        elif action == "str_strip":
+            return transform.str_strip(df, col)
+        elif action == "dummy_encode":
+            drop_first = input.drop_first()
+            return transform.dummy_encode(df, col, drop_first=drop_first)
+        elif action == "ordinal_encode":
+            order_str = input.ordinal_order().strip()
+            order = [s.strip() for s in order_str.split(",") if s.strip()] if order_str else None
+            return transform.ordinal_encode(df, col, order=order)
+        else:
+            return None
+
+    @reactive.effect
+    @reactive.event(input.preview_btn)
+    def _preview():
+        df = get_current_df()
+        req(df is not None)
+        try:
+            result = _run_transform(df)
+            if result is not None:
+                result_df, snippet = result
+                _preview_result.set((result_df, snippet))
+                last_code.set(snippet.code)
+                ui.notification_show(
+                    f"Preview: {result_df.shape[0]} rows x {result_df.shape[1]} cols",
+                    type="message",
+                )
+        except Exception as e:
+            _preview_result.set(None)
+            ui.notification_show(f"Preview error: {e}", type="error")
+
     @reactive.effect
     @reactive.event(input.apply_btn)
     def _apply():
@@ -106,53 +175,24 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         action = input.action()
 
         try:
-            if action == "drop_columns":
-                drop_cols = list(input.drop_cols())
-                req(len(drop_cols) > 0)
-                result, snippet = transform.drop_columns(df, drop_cols)
+            # Use preview result if available, otherwise compute fresh
+            pr = _preview_result()
+            if pr is not None:
+                result, snippet = pr
             else:
+                out = _run_transform(df)
+                if out is None:
+                    return
+                result, snippet = out
+
+            if action == "fill_missing":
                 col = input.col()
-                req(col)
-                if action == "fill_missing":
-                    method = input.fill_method()
-                    val = input.fill_value() if method == "value" else None
-                    n_missing = df[col].isna().sum()
-                    if n_missing == 0:
-                        ui.notification_show(
-                            f"Column '{col}' has no missing values. Nothing to fill.",
-                            type="warning",
-                        )
-                        return
-                    result, snippet = transform.fill_missing(df, col, method, val)
-                elif action == "drop_missing":
-                    result, snippet = transform.drop_missing(df, [col])
-                elif action == "convert_dtype":
-                    result, snippet = transform.convert_dtype(df, col, input.target_dtype())
-                elif action == "drop_duplicates":
-                    result, snippet = transform.drop_duplicates(df, [col])
-                elif action == "add_log":
-                    new_name = input.new_col_name() or f"{col}_log"
-                    result, snippet = transform.add_column_log(df, new_name, col)
-                elif action == "add_zscore":
-                    new_name = input.new_col_name() or f"{col}_zscore"
-                    result, snippet = transform.add_column_zscore(df, new_name, col)
-                elif action == "add_rank":
-                    new_name = input.new_col_name() or f"{col}_rank"
-                    result, snippet = transform.add_column_rank(df, new_name, col)
-                elif action == "str_lower":
-                    result, snippet = transform.str_lower(df, col)
-                elif action == "str_upper":
-                    result, snippet = transform.str_upper(df, col)
-                elif action == "str_strip":
-                    result, snippet = transform.str_strip(df, col)
-                elif action == "dummy_encode":
-                    drop_first = input.drop_first()
-                    result, snippet = transform.dummy_encode(df, col, drop_first=drop_first)
-                elif action == "ordinal_encode":
-                    order_str = input.ordinal_order().strip()
-                    order = [s.strip() for s in order_str.split(",") if s.strip()] if order_str else None
-                    result, snippet = transform.ordinal_encode(df, col, order=order)
-                else:
+                n_missing = df[col].isna().sum()
+                if n_missing == 0:
+                    ui.notification_show(
+                        f"Column '{col}' has no missing values. Nothing to fill.",
+                        type="warning",
+                    )
                     return
 
             # Find and update the dataset
@@ -165,6 +205,7 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
                     ))
                     state.codegen.record(snippet)
                     last_code.set(snippet.code)
+                    _preview_result.set(None)
                     ui.notification_show(f"Transform applied: {action}", type="message")
                     break
 
@@ -176,11 +217,23 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         df = get_current_df()
         if df is None:
             return "No dataset selected."
+        pr = _preview_result()
+        if pr is not None:
+            result_df, _ = pr
+            orig_rows = df.shape[0]
+            new_rows = result_df.shape[0]
+            new_cols = result_df.shape[1]
+            return f"PREVIEW: {new_rows} rows x {new_cols} cols (original: {orig_rows} rows) | Click Apply to commit"
         n_missing = df.isna().sum().sum()
-        return f"{df.shape[0]} rows × {df.shape[1]} columns | {n_missing} missing values"
+        return f"{df.shape[0]} rows x {df.shape[1]} columns | {n_missing} missing values"
 
     @render.data_frame
     def preview():
+        # Show preview result if available, otherwise show raw data
+        pr = _preview_result()
+        if pr is not None:
+            result_df, _ = pr
+            return render.DataGrid(round_df(result_df.head(100), get_dec()), height="400px")
         df = get_current_df()
         req(df is not None)
         return render.DataGrid(round_df(df.head(100), get_dec()), height="400px")

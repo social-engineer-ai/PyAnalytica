@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 import matplotlib
@@ -77,7 +78,7 @@ def evaluate_classification(
             ax.set_ylim([0, 1.05])
             roc_fig.tight_layout()
         except Exception:
-            pass
+            logging.getLogger(__name__).warning("ROC/AUC computation failed", exc_info=True)
 
     # Profit curve
     profit_fig = None

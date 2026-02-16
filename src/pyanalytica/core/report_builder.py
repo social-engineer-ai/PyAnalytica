@@ -6,6 +6,7 @@ import base64
 import html as html_mod
 import io
 import json
+import logging
 import sys
 import uuid
 from dataclasses import dataclass, field
@@ -202,7 +203,7 @@ class ReportBuilder:
                 try:
                     exec(imp, namespace)  # noqa: S102
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Import failed: %s", imp, exc_info=True)
 
             # Capture stdout
             old_stdout = sys.stdout

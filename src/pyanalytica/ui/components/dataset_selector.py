@@ -18,6 +18,15 @@ def dataset_selector_ui():
             width="250px",
         ),
         ui.input_action_link("remove_dataset", "Remove", class_="text-danger small"),
+        # Confirmation guard: intercept click and require user consent
+        ui.tags.script(ui.HTML("""
+            $(document).on('click', '[id$="remove_dataset"]', function(e) {
+                if (!confirm('Remove this dataset? This cannot be undone.')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+            });
+        """)),
         class_="d-flex align-items-center gap-3",
     )
 
