@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from shiny import App, reactive, render, ui
 
 from pyanalytica.core.config import CourseConfig, is_menu_visible, load_config
+from pyanalytica.core.extensions import discover_extensions
 from pyanalytica.core.session import delete_session, list_sessions, load_session, save_session
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.theme import apply_theme, get_theme
+from pyanalytica.datasets import register_extension_datasets
 from pyanalytica.ui.components.dataset_selector import dataset_selector_server, dataset_selector_ui
 from pyanalytica.ui.modules.data import (
     mod_combine, mod_export, mod_load, mod_profile, mod_transform, mod_view,
@@ -26,6 +29,8 @@ from pyanalytica.ui.modules.homework import mod_homework
 from pyanalytica.ui.modules.report import mod_notebook, mod_procedure, mod_report_builder
 from pyanalytica.ui.modules.ai import mod_assistant
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(config: CourseConfig | None = None) -> App:
     """Create the PyAnalytica Shiny application."""
@@ -33,6 +38,27 @@ def create_app(config: CourseConfig | None = None) -> App:
         config = load_config()
 
     apply_theme(get_theme(config.theme))
+
+    # --- Discover installed extensions ---
+    registry = discover_extensions()
+    if registry.datasets:
+        register_extension_datasets(registry.datasets)
+
+    # Build per-section extension sub-tabs
+    _section_ext_tabs: dict[str, list] = {
+        "Data": [], "Explore": [], "Visualize": [],
+        "Analyze": [], "Model": [], "Report": [],
+    }
+    _toplevel_ext_panels: list = []
+    for mod in registry.modules:
+        try:
+            panel = ui.nav_panel(mod.label, mod.ui_func(mod.module_id))
+            if mod.parent and mod.parent in _section_ext_tabs:
+                _section_ext_tabs[mod.parent].append(panel)
+            else:
+                _toplevel_ext_panels.append(panel)
+        except Exception:
+            logger.warning("Failed to build UI for extension module %r", mod.module_id, exc_info=True)
 
     app_ui = ui.page_navbar(
         ui.head_content(
@@ -52,6 +78,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Transform", mod_transform.transform_ui("transform")),
                 ui.nav_panel("Combine", mod_combine.combine_ui("combine")),
                 ui.nav_panel("Export", mod_export.export_ui("export")),
+                *_section_ext_tabs["Data"],
             ),
         ),
         # === EXPLORE ===
@@ -60,6 +87,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Group By / Summarize", mod_summarize.summarize_ui("summarize")),
                 ui.nav_panel("Pivot", mod_pivot.pivot_ui("pivot")),
                 ui.nav_panel("Cross-tab", mod_crosstab.crosstab_ui("crosstab")),
+                *_section_ext_tabs["Explore"],
             ),
         ),
         # === VISUALIZE ===
@@ -70,6 +98,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Compare", mod_compare.compare_ui("compare")),
                 ui.nav_panel("Correlate", mod_correlate.correlate_ui("correlate")),
                 ui.nav_panel("Timeline", mod_timeline.timeline_ui("timeline")),
+                *_section_ext_tabs["Visualize"],
             ),
         ),
         # === ANALYZE ===
@@ -78,6 +107,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Means", mod_means.means_ui("means")),
                 ui.nav_panel("Proportions", mod_proportions.proportions_ui("proportions")),
                 ui.nav_panel("Correlation", mod_correlation.correlation_ui("correlation")),
+                *_section_ext_tabs["Analyze"],
             ),
         ),
         # === MODEL ===
@@ -89,6 +119,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Predict", mod_predict.predict_ui("predict")),
                 ui.nav_panel("Cluster", mod_cluster.cluster_ui("cluster")),
                 ui.nav_panel("Reduce", mod_reduce.reduce_ui("reduce")),
+                *_section_ext_tabs["Model"],
             ),
         ),
         # === HOMEWORK ===
@@ -99,10 +130,13 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Report Builder", mod_report_builder.report_builder_ui("report_builder")),
                 ui.nav_panel("Notebook", mod_notebook.notebook_ui("report")),
                 ui.nav_panel("Procedure", mod_procedure.procedure_ui("procedure")),
+                *_section_ext_tabs["Report"],
             ),
         ),
         # === AI ASSISTANT ===
         ui.nav_panel("AI Assistant", mod_assistant.assistant_ui("assistant")),
+        # === EXTENSION TOP-LEVEL PANELS ===
+        *_toplevel_ext_panels,
         header=ui.div(
             ui.div(
                 dataset_selector_ui("ds"),
@@ -194,6 +228,15 @@ def create_app(config: CourseConfig | None = None) -> App:
 
         # AI Assistant module
         mod_assistant.assistant_server("assistant", state=state, get_current_df=current_df)
+
+        # Extension modules
+        for ext_mod in registry.modules:
+            try:
+                ext_mod.server_func(ext_mod.module_id, state=state, get_current_df=current_df)
+            except Exception:
+                logger.warning(
+                    "Failed to initialize extension server %r", ext_mod.module_id, exc_info=True,
+                )
 
         # --- Session persistence ---
 
