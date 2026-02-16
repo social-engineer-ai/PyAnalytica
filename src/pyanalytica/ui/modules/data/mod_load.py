@@ -89,7 +89,7 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
         df = get_current_df()
         if df is None:
             return "No dataset loaded."
-        return f"Shape: {df.shape[0]} rows × {df.shape[1]} columns | Memory: {df.memory_usage(deep=True).sum() / 1024:.1f} KB"
+        return f"Shape: {df.shape[0]} rows × {df.shape[1]} columns | Memory: {df.memory_usage(deep=False).sum() / 1024:.1f} KB"
 
     @render.data_frame
     def preview_table():

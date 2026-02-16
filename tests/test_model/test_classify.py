@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyanalytica.model.classify import decision_tree, logistic_regression
+from pyanalytica.model.classify import decision_tree, logistic_regression, random_forest
 
 
 @pytest.fixture
@@ -87,3 +87,51 @@ def test_decision_tree_returns_model(df):
     assert result.model is not None
     assert result.label_encoder is not None
     assert result.feature_names == ["x1", "x2"]
+
+
+# --- Random Forest tests ---
+
+def test_rf_basic(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert result.model_type == "Random Forest"
+    assert result.train_accuracy > 0.5
+    assert result.test_accuracy > 0.5
+
+
+def test_rf_feature_importance(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert result.feature_importance is not None
+    assert len(result.feature_importance) == 2
+    assert "importance" in result.feature_importance.columns
+
+
+def test_rf_predictions(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert len(result.predictions) > 0
+
+
+def test_rf_probabilities(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert len(result.probabilities) > 0
+    assert all(0 <= p <= 1 for p in result.probabilities)
+
+
+def test_rf_returns_model(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert result.model is not None
+    assert hasattr(result.model, "predict")
+    assert result.label_encoder is not None
+    assert result.feature_names == ["x1", "x2"]
+
+
+def test_rf_random_state(df):
+    r1 = random_forest(df, "target", ["x1", "x2"], random_state=42)
+    r2 = random_forest(df, "target", ["x1", "x2"], random_state=42)
+    assert r1.train_accuracy == r2.train_accuracy
+    assert r1.test_accuracy == r2.test_accuracy
+
+
+def test_rf_code(df):
+    result = random_forest(df, "target", ["x1", "x2"])
+    assert "RandomForestClassifier" in result.code.code
+    assert "random_state=42" in result.code.code

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -21,6 +22,7 @@ class ProportionsResult:
     residuals: pd.DataFrame
     interpretation: str
     code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+    cramers_v: float | None = None
 
 
 def chi_square_test(
@@ -38,6 +40,11 @@ def chi_square_test(
     # Standardized residuals
     residuals = ((observed - expected_df) / expected_df.apply(lambda x: x**0.5)).round(2)
 
+    # Cramer's V
+    n = observed.values.sum()
+    min_dim = min(observed.shape[0] - 1, observed.shape[1] - 1)
+    v = float(np.sqrt(chi2 / (n * min_dim))) if min_dim > 0 and n > 0 else None
+
     # Interpretation
     if p_value < 0.001:
         p_str = "p < .001"
@@ -54,6 +61,8 @@ def chi_square_test(
             f"There is no statistically significant association between "
             f"{row_var} and {col_var}, \u03c7\u00b2({dof}) = {chi2:.1f}, {p_str}."
         )
+    if v is not None:
+        interp += f" Cramer's V = {v:.3f}."
 
     code = (
         f'from scipy import stats\n'
@@ -71,4 +80,5 @@ def chi_square_test(
         residuals=residuals,
         interpretation=interp,
         code=CodeSnippet(code=code, imports=["import pandas as pd", "from scipy import stats"]),
+        cramers_v=round(v, 4) if v is not None else None,
     )

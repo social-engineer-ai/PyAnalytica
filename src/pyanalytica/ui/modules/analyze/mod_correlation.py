@@ -20,7 +20,7 @@ def correlation_ui():
             ui.input_select("alternative", "Alternative Hypothesis",
                 choices={"two-sided": "Two-sided (!=)", "less": "Less (<)", "greater": "Greater (>)"}),
             ui.input_action_button("run_btn", "Run Test", class_="btn-primary w-100 mt-2"),
-            width=280,
+            width=300,
         ),
         ui.output_ui("test_result"),
         code_panel_ui("code"),

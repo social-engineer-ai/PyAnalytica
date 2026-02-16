@@ -80,3 +80,27 @@ def test_empty_series():
     s = pd.Series([], dtype=object, name="empty")
     result = classify_column(s)
     assert result == ColumnType.CATEGORICAL
+
+
+def test_classify_columns_cache_hit():
+    """Same DataFrame object should return cached result."""
+    from pyanalytica.core.types import _classify_cache
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "x"]})
+    _classify_cache.clear()
+    r1 = classify_columns(df)
+    r2 = classify_columns(df)
+    assert r1 is r2  # exact same dict object from cache
+    assert id(df) in _classify_cache
+
+
+def test_classify_columns_cache_miss():
+    """New DataFrame should replace cache entry."""
+    from pyanalytica.core.types import _classify_cache
+    df1 = pd.DataFrame({"a": [1, 2, 3]})
+    df2 = pd.DataFrame({"b": ["x", "y", "z"]})
+    _classify_cache.clear()
+    classify_columns(df1)
+    assert id(df1) in _classify_cache
+    classify_columns(df2)
+    assert id(df1) not in _classify_cache
+    assert id(df2) in _classify_cache

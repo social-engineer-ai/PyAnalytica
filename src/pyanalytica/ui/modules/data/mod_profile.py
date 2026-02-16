@@ -16,7 +16,7 @@ def profile_ui():
         ui.sidebar(
             ui.p("Select a dataset to see its profile."),
             ui.input_action_button("refresh", "Refresh Profile", class_="btn-outline-primary w-100"),
-            width=250,
+            width=300,
         ),
         ui.navset_tab(
             ui.nav_panel("Overview", ui.output_ui("overview")),

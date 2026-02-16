@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
+from pyanalytica.analyze.means import (
+    kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
+)
 
 
 @pytest.fixture
@@ -89,3 +91,72 @@ def test_default_is_two_sided(df):
     r2 = one_sample_ttest(df, "value", mu=10, alternative="two-sided")
     assert r1.p_value == r2.p_value
     assert r1.statistic == r2.statistic
+
+
+# --- Mann-Whitney U tests ---
+
+def test_mann_whitney_basic(df):
+    result = mann_whitney_test(df, "value", "group")
+    assert result.test_name == "Mann-Whitney U test"
+    assert result.statistic is not None
+    assert result.p_value is not None
+    assert len(result.group_stats) == 2
+
+
+def test_mann_whitney_significant(df):
+    result = mann_whitney_test(df, "value", "group")
+    assert result.p_value < 0.05
+
+
+def test_mann_whitney_effect_size(df):
+    result = mann_whitney_test(df, "value", "group")
+    assert result.effect_size is not None
+    assert result.effect_size_name == "Rank-biserial r"
+
+
+def test_mann_whitney_interpretation(df):
+    result = mann_whitney_test(df, "value", "group")
+    assert "significantly" in result.interpretation.lower()
+    assert "median" in result.interpretation.lower()
+
+
+def test_mann_whitney_code(df):
+    result = mann_whitney_test(df, "value", "group")
+    assert "mannwhitneyu" in result.code.code
+
+
+def test_mann_whitney_alternative(df):
+    result = mann_whitney_test(df, "value", "group", alternative="less")
+    assert 'alternative="less"' in result.code.code
+    assert "lower than" in result.interpretation
+
+
+def test_mann_whitney_wrong_groups():
+    df = pd.DataFrame({"value": [1, 2, 3], "group": ["A", "B", "C"]})
+    with pytest.raises(ValueError, match="Expected 2 groups"):
+        mann_whitney_test(df, "value", "group")
+
+
+# --- Kruskal-Wallis H tests ---
+
+def test_kruskal_basic(df):
+    result = kruskal_wallis_test(df, "value", "group3")
+    assert result.test_name == "Kruskal-Wallis H test"
+    assert result.statistic is not None
+    assert result.p_value is not None
+
+
+def test_kruskal_groups(df):
+    result = kruskal_wallis_test(df, "value", "group3")
+    assert len(result.group_stats) == 3
+    assert "median" in result.group_stats.columns
+
+
+def test_kruskal_interpretation(df):
+    result = kruskal_wallis_test(df, "value", "group3")
+    assert "difference" in result.interpretation.lower()
+
+
+def test_kruskal_code(df):
+    result = kruskal_wallis_test(df, "value", "group3")
+    assert "kruskal" in result.code.code

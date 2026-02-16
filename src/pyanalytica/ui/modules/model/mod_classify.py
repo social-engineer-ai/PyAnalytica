@@ -9,7 +9,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.model_store import ModelArtifact
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
-from pyanalytica.model.classify import decision_tree, logistic_regression
+from pyanalytica.model.classify import decision_tree, logistic_regression, random_forest
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
@@ -19,7 +19,8 @@ def classify_ui():
     return ui.layout_sidebar(
         ui.sidebar(
             ui.input_select("model_type", "Model",
-                choices={"logistic": "Logistic Regression", "tree": "Decision Tree"}),
+                choices={"logistic": "Logistic Regression", "tree": "Decision Tree",
+                         "rf": "Random Forest"}),
             ui.input_select("target", "Target", choices=[]),
             ui.input_select("features", "Features", choices=[], multiple=True),
             ui.input_slider("test_size", "Test Split", 0.1, 0.5, 0.3, step=0.05),
@@ -54,8 +55,14 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
 
     @render.ui
     def model_options():
-        if input.model_type() == "tree":
+        mt = input.model_type()
+        if mt == "tree":
             return ui.input_slider("max_depth", "Max Depth", 1, 20, 5)
+        elif mt == "rf":
+            return ui.div(
+                ui.input_slider("n_estimators", "Number of Trees", 10, 500, 100, step=10),
+                ui.input_slider("rf_max_depth", "Max Depth (0 = None)", 0, 30, 0),
+            )
         return ui.div()
 
     @reactive.effect
@@ -68,10 +75,19 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
         req(target, features)
         try:
             seed = int(input.random_seed()) if input.random_seed() is not None else 42
-            if input.model_type() == "logistic":
+            model_choice = input.model_type()
+            if model_choice == "logistic":
                 r = logistic_regression(df, target, features,
                                         test_size=input.test_size(), random_state=seed)
                 mt = "logistic_regression"
+            elif model_choice == "rf":
+                rf_depth = input.rf_max_depth()
+                r = random_forest(df, target, features,
+                                  test_size=input.test_size(),
+                                  n_estimators=input.n_estimators(),
+                                  max_depth=rf_depth if rf_depth > 0 else None,
+                                  random_state=seed)
+                mt = "random_forest"
             else:
                 r = decision_tree(df, target, features,
                                   test_size=input.test_size(), max_depth=input.max_depth(),

@@ -99,7 +99,7 @@ def profile_column(series: pd.Series) -> ColumnProfile:
 def profile_dataframe(df: pd.DataFrame) -> DataProfile:
     """Generate a complete profile of a DataFrame."""
     # Memory usage
-    mem_bytes = df.memory_usage(deep=True).sum()
+    mem_bytes = df.memory_usage(deep=False).sum()
     if mem_bytes < 1024:
         memory_str = f"{mem_bytes} B"
     elif mem_bytes < 1024 ** 2:

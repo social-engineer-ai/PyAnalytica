@@ -41,13 +41,17 @@ from pyanalytica.visualize.correlate import correlation_matrix, pair_plot
 
 # Statistical analysis
 from pyanalytica.analyze.correlation import correlation_test
-from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
+from pyanalytica.analyze.means import (
+    kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
+)
+from pyanalytica.analyze.normality import NormalityResult, shapiro_wilk_test
 from pyanalytica.analyze.proportions import chi_square_test
 
 # Modeling
 from pyanalytica.model.regression import linear_regression
-from pyanalytica.model.classify import decision_tree, logistic_regression
+from pyanalytica.model.classify import decision_tree, logistic_regression, random_forest
 from pyanalytica.model.cluster import kmeans_cluster
+from pyanalytica.model.cross_validate import CrossValidationResult, cross_validate_model
 from pyanalytica.model.reduce import pca_analysis
 
 __all__ = [
@@ -63,8 +67,10 @@ __all__ = [
     "scatter", "hexbin", "correlation_matrix", "pair_plot",
     # Analyze
     "correlation_test", "one_sample_ttest", "two_sample_ttest",
-    "one_way_anova", "chi_square_test",
+    "one_way_anova", "mann_whitney_test", "kruskal_wallis_test",
+    "shapiro_wilk_test", "NormalityResult", "chi_square_test",
     # Model
     "linear_regression", "logistic_regression", "decision_tree",
+    "random_forest", "cross_validate_model", "CrossValidationResult",
     "kmeans_cluster", "pca_analysis",
 ]

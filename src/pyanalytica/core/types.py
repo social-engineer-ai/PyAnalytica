@@ -56,9 +56,22 @@ def classify_column(series: pd.Series) -> ColumnType:
     return ColumnType.TEXT
 
 
+_classify_cache: dict[int, dict[str, ColumnType]] = {}
+
+
 def classify_columns(df: pd.DataFrame) -> dict[str, ColumnType]:
-    """Classify all columns in a DataFrame."""
-    return {col: classify_column(df[col]) for col in df.columns}
+    """Classify all columns in a DataFrame.
+
+    Uses a single-entry id(df)-keyed cache. Safe because DataFrames
+    are never mutated in place (always .copy() then replace).
+    """
+    df_id = id(df)
+    if df_id in _classify_cache:
+        return _classify_cache[df_id]
+    result = {col: classify_column(df[col]) for col in df.columns}
+    _classify_cache.clear()
+    _classify_cache[df_id] = result
+    return result
 
 
 def get_numeric_columns(df: pd.DataFrame) -> list[str]:

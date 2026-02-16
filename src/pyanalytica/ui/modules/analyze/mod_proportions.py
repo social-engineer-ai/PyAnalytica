@@ -20,7 +20,7 @@ def proportions_ui():
             ui.input_select("row_var", "Row Variable", choices=[]),
             ui.input_select("col_var", "Column Variable", choices=[]),
             ui.input_action_button("run_btn", "Run Test", class_="btn-primary w-100 mt-2"),
-            width=280,
+            width=300,
         ),
         ui.output_ui("test_result"),
         decimals_ui("dec"),

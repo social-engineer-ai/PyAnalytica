@@ -22,7 +22,7 @@ def evaluate_ui():
             ui.input_action_button("run_btn", "Evaluate", class_="btn-primary w-100 mt-2"),
             ui.tags.hr(),
             ui.output_ui("threshold_ui"),
-            width=280,
+            width=300,
         ),
         ui.output_ui("metrics_summary"),
         ui.h5("Confusion Matrix"),

@@ -37,7 +37,7 @@ def transform_ui():
             ui.output_ui("action_controls"),
             ui.input_action_button("preview_btn", "Preview", class_="btn-outline-info w-100 mt-2"),
             ui.input_action_button("apply_btn", "Apply", class_="btn-primary w-100 mt-1"),
-            width=320,
+            width=300,
         ),
         ui.output_text("transform_info"),
         decimals_ui("dec"),

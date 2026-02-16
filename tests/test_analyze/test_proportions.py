@@ -73,3 +73,24 @@ def test_chi_square_not_significant():
     })
     result = chi_square_test(df, "x", "y")
     assert "no statistically significant" in result.interpretation.lower()
+
+
+def test_cramers_v_returned(df):
+    result = chi_square_test(df, "gender", "preference")
+    assert result.cramers_v is not None
+    assert 0 <= result.cramers_v <= 1
+
+
+def test_cramers_v_strong_association():
+    """Strong association should produce high Cramer's V."""
+    df = pd.DataFrame({
+        "x": ["A"] * 50 + ["B"] * 50,
+        "y": ["yes"] * 45 + ["no"] * 5 + ["no"] * 45 + ["yes"] * 5,
+    })
+    result = chi_square_test(df, "x", "y")
+    assert result.cramers_v > 0.3
+
+
+def test_cramers_v_in_interpretation(df):
+    result = chi_square_test(df, "gender", "preference")
+    assert "Cramer's V" in result.interpretation

@@ -15,7 +15,7 @@ def export_ui():
             ui.input_select("format", "Export Format",
                 choices={"csv": "CSV", "excel": "Excel (.xlsx)"}),
             ui.download_button("download_btn", "Download", class_="btn-primary w-100 mt-2"),
-            width=250,
+            width=300,
         ),
         ui.output_text("export_info"),
         ui.output_data_frame("export_preview"),

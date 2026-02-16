@@ -1,13 +1,17 @@
-"""Analyze > Means module — t-tests and ANOVA."""
+"""Analyze > Means module — t-tests, ANOVA, and non-parametric tests."""
 
 from __future__ import annotations
 
+import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
-from pyanalytica.analyze.means import one_sample_ttest, one_way_anova, two_sample_ttest
+from pyanalytica.analyze.means import (
+    kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
+)
+from pyanalytica.analyze.normality import shapiro_wilk_test
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -18,8 +22,14 @@ def means_ui():
     return ui.layout_sidebar(
         ui.sidebar(
             ui.input_select("test_type", "Test",
-                choices={"one_sample": "One-sample t-test", "two_sample": "Two-sample t-test",
-                         "anova": "One-way ANOVA"}),
+                choices={
+                    "one_sample": "One-sample t-test",
+                    "two_sample": "Two-sample t-test",
+                    "anova": "One-way ANOVA",
+                    "mann_whitney": "Mann-Whitney U",
+                    "kruskal": "Kruskal-Wallis H",
+                    "normality": "Normality (Shapiro-Wilk)",
+                }),
             ui.input_select("value_col", "Numeric Variable", choices=[]),
             ui.output_ui("test_controls"),
             ui.input_action_button("run_btn", "Run Test", class_="btn-primary w-100 mt-2"),
@@ -66,6 +76,17 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
         elif tt == "anova":
             cats = get_categorical_columns(df) if df is not None else []
             return ui.input_select("group_col", "Group Variable", choices=cats)
+        elif tt == "mann_whitney":
+            cats = get_categorical_columns(df) if df is not None else []
+            return ui.div(
+                ui.input_select("group_col", "Group Variable", choices=cats),
+                alt_select,
+            )
+        elif tt == "kruskal":
+            cats = get_categorical_columns(df) if df is not None else []
+            return ui.input_select("group_col", "Group Variable", choices=cats)
+        elif tt == "normality":
+            return ui.div()
         return ui.div()
 
     @reactive.effect
@@ -78,13 +99,34 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
         tt = input.test_type()
 
         try:
-            alt = input.alternative() if tt in ("one_sample", "two_sample") else "two-sided"
+            alt = input.alternative() if tt in ("one_sample", "two_sample", "mann_whitney") else "two-sided"
             if tt == "one_sample":
                 result = one_sample_ttest(df, col, input.mu(), alternative=alt)
             elif tt == "two_sample":
                 result = two_sample_ttest(df, col, input.group_col(), alternative=alt)
             elif tt == "anova":
                 result = one_way_anova(df, col, input.group_col())
+            elif tt == "mann_whitney":
+                result = mann_whitney_test(df, col, input.group_col(), alternative=alt)
+            elif tt == "kruskal":
+                result = kruskal_wallis_test(df, col, input.group_col())
+            elif tt == "normality":
+                nr = shapiro_wilk_test(df, col)
+                # Wrap NormalityResult into a MeansTestResult-like for display
+                from pyanalytica.analyze.means import MeansTestResult
+                result = MeansTestResult(
+                    test_name=nr.test_name,
+                    statistic=nr.statistic,
+                    p_value=nr.p_value,
+                    effect_size=None,
+                    effect_size_name="",
+                    group_stats=pd.DataFrame({
+                        "n": [nr.n], "skewness": [nr.skewness],
+                        "kurtosis": [nr.kurtosis], "is_normal": [nr.is_normal],
+                    }),
+                    interpretation=nr.interpretation,
+                    code=nr.code,
+                )
             else:
                 return
             test_result_val.set(result)
