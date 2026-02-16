@@ -8,6 +8,7 @@ from pyanalytica.core import round_df
 from pyanalytica.core.codegen import CodeSnippet
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -38,6 +39,7 @@ def view_ui():
         decimals_ui("dec"),
         ui.output_data_frame("view_table"),
         download_result_ui("dl"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -46,6 +48,7 @@ def view_ui():
 def view_server(input, output, session, state: WorkbenchState, get_current_df):
     filters = reactive.value([])
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     get_dec = decimals_server("dec")
     _prev_dataset_id = reactive.value(None)
 
@@ -129,8 +132,10 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
                     snippet = CodeSnippet(code=code, imports=["import pandas as pd"])
                     state.codegen.record(snippet, action="filter",
                                          description=f"Applied filters to '{name}'")
+                    last_report_info.set(("filter", f"Filter {name}", snippet.code, snippet.imports))
                 ui.notification_show(f"Filters applied to '{name}'", type="message")
                 break
 
     download_result_server("dl", get_df=filtered_df, filename="filtered_data")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

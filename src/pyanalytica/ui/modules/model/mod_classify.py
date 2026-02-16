@@ -10,6 +10,7 @@ from pyanalytica.core.model_store import ModelArtifact
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.model.classify import decision_tree, logistic_regression, random_forest
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
@@ -35,6 +36,7 @@ def classify_ui():
         ui.output_ui("model_summary"),
         ui.output_data_frame("detail_table"),
         download_result_ui("dl"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -42,6 +44,7 @@ def classify_ui():
 @module.server
 def classify_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     result = reactive.value(None)
 
     @reactive.effect
@@ -96,6 +99,7 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
             result.set(r)
             state.codegen.record(r.code, action="model", description="Classification")
             last_code.set(r.code.code)
+            last_report_info.set(("model", f"{r.model_type} classification", r.code.code, r.code.imports))
 
             # Save model artifact
             model_name = input.model_name().strip()
@@ -169,4 +173,5 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
         return r.feature_importance
 
     download_result_server("dl", get_df=_get_classify_detail, filename="model_details")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

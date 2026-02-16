@@ -8,6 +8,7 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.load import load_bundled, load_csv, load_from_bytes, load_url
 from pyanalytica.datasets import list_datasets
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 
@@ -30,6 +31,7 @@ def load_ui():
         ui.output_text("load_info"),
         decimals_ui("dec"),
         ui.output_data_frame("preview_table"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -37,6 +39,7 @@ def load_ui():
 @module.server
 def load_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     get_dec = decimals_server("dec")
 
     @render.ui
@@ -80,6 +83,7 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
             state.load(name, df)
             state.codegen.record(snippet)
             last_code.set(snippet.code)
+            last_report_info.set(("load", f"Load {name}", snippet.code, snippet.imports))
             ui.notification_show(f"Loaded '{name}': {df.shape[0]} rows, {df.shape[1]} columns", type="message")
         except Exception as e:
             ui.notification_show(f"Error loading data: {e}", type="error")
@@ -97,4 +101,5 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
         req(df is not None)
         return render.DataGrid(round_df(df.head(100), get_dec()), height="400px")
 
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

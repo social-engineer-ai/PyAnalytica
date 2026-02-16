@@ -7,6 +7,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.analyze.correlation import correlation_test
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 
 
@@ -23,6 +24,7 @@ def correlation_ui():
             width=300,
         ),
         ui.output_ui("test_result"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -30,6 +32,7 @@ def correlation_ui():
 @module.server
 def correlation_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     result = reactive.value(None)
 
     @reactive.effect
@@ -52,6 +55,7 @@ def correlation_server(input, output, session, state: WorkbenchState, get_curren
             result.set(r)
             state.codegen.record(r.code, action="analyze", description="Correlation test")
             last_code.set(r.code.code)
+            last_report_info.set(("analyze", "Correlation test", r.code.code, r.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -71,4 +75,5 @@ def correlation_server(input, output, session, state: WorkbenchState, get_curren
             class_=f"alert {sig_class}",
         )
 
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

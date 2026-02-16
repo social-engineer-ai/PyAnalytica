@@ -8,6 +8,7 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.explore.summarize import group_summarize
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -31,6 +32,7 @@ def summarize_ui():
         decimals_ui("dec"),
         ui.output_data_frame("summary_table"),
         download_result_ui("dl"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -38,6 +40,7 @@ def summarize_ui():
 @module.server
 def summarize_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     get_dec = decimals_server("dec")
 
     @reactive.effect
@@ -60,6 +63,7 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
         result_df, snippet = group_summarize(df, group_cols, value_cols, agg_funcs, input.pct_total())
         state.codegen.record(snippet, action="explore", description="Group summary")
         last_code.set(snippet.code)
+        last_report_info.set(("explore", "Group by summarize", snippet.code, snippet.imports))
         return result_df
 
     @render.data_frame
@@ -69,4 +73,5 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
         return render.DataGrid(round_df(df, get_dec()), height="500px")
 
     download_result_server("dl", get_df=result, filename="summary")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

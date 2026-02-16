@@ -11,6 +11,7 @@ import pandas as pd
 from pyanalytica.core.codegen import CodeGenerator, CodeSnippet
 from pyanalytica.core.model_store import ModelStore
 from pyanalytica.core.procedure import ProcedureRecorder
+from pyanalytica.core.report_builder import ReportBuilder
 
 
 @dataclass
@@ -41,9 +42,12 @@ class WorkbenchState:
         self.codegen: CodeGenerator = CodeGenerator()
         self.model_store: ModelStore = ModelStore()
         self.procedure_recorder: ProcedureRecorder = ProcedureRecorder()
+        self.report_builder: ReportBuilder = ReportBuilder()
         self._decimals = lambda: 4  # Default; overridden per-module by UI
         self._change_signal = None  # Set externally by UI layer (shiny reactive.value)
         self._change_counter = 0
+        self._report_change_signal = None  # Set by report builder UI
+        self._report_change_counter = 0
 
         # Auto-forward codegen records to the procedure recorder
         def _on_codegen_record(snippet: CodeSnippet, *, action: str | None = None,
@@ -73,6 +77,12 @@ class WorkbenchState:
         if self._change_signal is not None:
             self._change_counter += 1
             self._change_signal.set(self._change_counter)
+
+    def _notify_report(self) -> None:
+        """Bump the report-builder reactive signal if one is attached."""
+        if self._report_change_signal is not None:
+            self._report_change_counter += 1
+            self._report_change_signal.set(self._report_change_counter)
 
     def load(self, name: str, df: pd.DataFrame) -> None:
         """Load a new dataset into the store."""

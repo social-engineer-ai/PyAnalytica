@@ -8,6 +8,7 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.analyze.proportions import chi_square_test
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -29,6 +30,7 @@ def proportions_ui():
         download_result_ui("dl"),
         ui.h5("Expected"),
         ui.output_data_frame("expected"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -36,6 +38,7 @@ def proportions_ui():
 @module.server
 def proportions_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     result = reactive.value(None)
     get_dec = decimals_server("dec")
 
@@ -60,6 +63,7 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
             result.set(r)
             state.codegen.record(r.code, action="analyze", description="Chi-square test")
             last_code.set(r.code.code)
+            last_report_info.set(("analyze", "Chi-square test", r.code.code, r.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -83,4 +87,5 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
         return render.DataGrid(round_df(r.expected.reset_index(), get_dec()))
 
     download_result_server("dl", get_df=lambda: result().observed.reset_index(), filename="observed")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

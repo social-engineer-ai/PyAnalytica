@@ -6,7 +6,7 @@ import json
 
 from shiny import module, reactive, render, req, ui
 
-from pyanalytica.core.report_builder import CellType, ReportBuilder
+from pyanalytica.core.report_builder import CellType
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.report.export import export_report_html, export_report_jupyter
 
@@ -219,14 +219,24 @@ def report_builder_ui():
 
 @module.server
 def report_builder_server(input, output, session, state: WorkbenchState, get_current_df):
-    builder = ReportBuilder()
+    builder = state.report_builder
     refresh = reactive.value(0)
+
+    # Wire up reactive signal so external "Add to Report" additions trigger refresh
+    state._report_change_signal = reactive.value(0)
 
     cell_cmd_id = session.ns("_cell_cmd")
     md_update_id = session.ns("_md_update")
 
     def _bump():
         refresh.set(refresh() + 1)
+
+    # Watch for external additions (from "Add to Report" in other modules)
+    @reactive.effect
+    def _watch_external():
+        sig = state._report_change_signal()
+        if sig > 0:
+            _bump()
 
     # --- Sync title/author ---
     @reactive.effect

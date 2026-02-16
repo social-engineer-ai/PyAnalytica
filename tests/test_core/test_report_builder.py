@@ -108,6 +108,46 @@ class TestReportBuilderBasic:
         assert cells[0].order == 1
 
 
+class TestAddCodeCell:
+    def test_add_code_cell_basic(self, builder):
+        cell = builder.add_code_cell(
+            action="analyze", description="Run t-test",
+            code="from scipy import stats\nstats.ttest_1samp(df['x'], 0)",
+            imports=["import pandas as pd"],
+        )
+        assert builder.cell_count() == 1
+        assert cell.cell_type == CellType.CODE
+        assert cell.action == "analyze"
+        assert cell.description == "Run t-test"
+        assert "ttest_1samp" in cell.code
+        assert cell.imports == ["import pandas as pd"]
+
+    def test_add_code_cell_ordering(self, builder):
+        builder.add_code_cell(action="load", description="Step 1", code="x = 1")
+        builder.add_code_cell(action="transform", description="Step 2", code="x = 2")
+        builder.add_code_cell(action="visualize", description="Step 3", code="x = 3")
+        cells = builder.get_cells()
+        assert len(cells) == 3
+        assert cells[0].order == 1
+        assert cells[1].order == 2
+        assert cells[2].order == 3
+
+    def test_add_code_cell_imports_preserved(self, builder):
+        cell = builder.add_code_cell(
+            imports=["import numpy as np", "import pandas as pd"],
+        )
+        assert cell.imports == ["import numpy as np", "import pandas as pd"]
+
+    def test_add_code_cell_empty_defaults(self, builder):
+        cell = builder.add_code_cell()
+        assert cell.action == ""
+        assert cell.description == ""
+        assert cell.code == ""
+        assert cell.imports == []
+        assert cell.cell_type == CellType.CODE
+        assert cell.enabled is True
+
+
 class TestReportBuilderMutations:
     def test_remove_cell(self, builder, recorder):
         builder.import_from_recorder(recorder)

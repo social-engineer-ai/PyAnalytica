@@ -8,6 +8,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.model.predict import predict_from_artifact
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -36,6 +37,7 @@ def predict_ui():
         decimals_ui("dec"),
         ui.output_data_frame("predict_table"),
         download_result_ui("dl"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -43,6 +45,7 @@ def predict_ui():
 @module.server
 def predict_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     pred_df = reactive.value(None)
     get_dec = decimals_server("dec")
 
@@ -116,6 +119,7 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
             pred_df.set(result_df)
             state.codegen.record(snippet, action="model", description="Prediction")
             last_code.set(snippet.code)
+            last_report_info.set(("model", "Prediction", snippet.code, snippet.imports))
             ui.notification_show(
                 f"Predictions generated: {len(result_df)} rows.",
                 type="message",
@@ -157,4 +161,5 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
         return render.DataGrid(round_df(df.head(500), get_dec()), height="500px")
 
     download_result_server("dl", get_df=pred_df, filename="predictions")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

@@ -7,6 +7,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.reduce import pca_analysis
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
@@ -26,6 +27,7 @@ def reduce_ui():
         ui.output_data_frame("loadings"),
         download_result_ui("dl"),
         ui.p("PCA reveals structure in your data. It's exploratory — not predictive.", class_="text-muted small mt-2"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -33,6 +35,7 @@ def reduce_ui():
 @module.server
 def reduce_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     result = reactive.value(None)
 
     @reactive.effect
@@ -53,6 +56,7 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
             result.set(r)
             state.codegen.record(r.code, action="model", description="PCA")
             last_code.set(r.code.code)
+            last_report_info.set(("model", "PCA / Dimensionality reduction", r.code.code, r.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -90,4 +94,5 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
         get_df=lambda: result().loadings.reset_index(),
         filename="pca_loadings",
     )
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

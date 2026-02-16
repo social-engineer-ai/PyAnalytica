@@ -6,6 +6,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.combine import merge_dataframes
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 
 from datetime import datetime
@@ -27,6 +28,7 @@ def combine_ui():
         ),
         ui.output_text("merge_info"),
         ui.output_data_frame("merge_preview"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -34,6 +36,7 @@ def combine_ui():
 @module.server
 def combine_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
 
     @reactive.effect
     def _update_datasets():
@@ -73,6 +76,7 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
             state.load(result_name, result.merged)
             state.codegen.record(result.code)
             last_code.set(result.code.code)
+            last_report_info.set(("merge", f"Merge {left_name} + {right_name}", result.code.code, result.code.imports))
 
             msg = (
                 f"Merged: {result.result_rows} rows | "
@@ -93,4 +97,5 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
         req(df is not None)
         return render.DataGrid(df.head(100), height="400px")
 
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

@@ -12,6 +12,7 @@ from pyanalytica.analyze.means import (
     kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
 )
 from pyanalytica.analyze.normality import shapiro_wilk_test
+from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -40,6 +41,7 @@ def means_ui():
         ui.output_data_frame("group_stats"),
         download_result_ui("dl"),
         ui.output_ui("assumptions"),
+        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -47,6 +49,7 @@ def means_ui():
 @module.server
 def means_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
+    last_report_info = reactive.value(None)
     test_result_val = reactive.value(None)
     get_dec = decimals_server("dec")
 
@@ -132,6 +135,7 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
             test_result_val.set(result)
             state.codegen.record(result.code, action="analyze", description=result.test_name)
             last_code.set(result.code.code)
+            last_report_info.set(("analyze", result.test_name, result.code.code, result.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -167,4 +171,5 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
         return ui.div(*items, class_="mt-2 p-2 bg-light rounded")
 
     download_result_server("dl", get_df=lambda: test_result_val().group_stats, filename="group_stats")
+    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

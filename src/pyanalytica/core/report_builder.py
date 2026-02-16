@@ -79,6 +79,21 @@ class ReportBuilder:
         self._renumber()
         return count
 
+    def add_code_cell(self, *, action: str = "", description: str = "",
+                      code: str = "", imports: list[str] | None = None) -> ReportCell:
+        """Append a code cell directly (used by 'Add to Report' feature)."""
+        cell = ReportCell(
+            order=len(self._cells) + 1,
+            cell_type=CellType.CODE,
+            action=action,
+            description=description,
+            code=code,
+            imports=list(imports or []),
+        )
+        self._cells.append(cell)
+        self._renumber()
+        return cell
+
     def add_markdown_cell(self, after_cell_id: str | None = None, markdown: str = "") -> ReportCell:
         """Insert a markdown cell. If after_cell_id is given, insert after that cell."""
         cell = ReportCell(

@@ -99,3 +99,34 @@ def test_history():
     state.load("test", pd.DataFrame({"a": [1]}))
     assert len(state.history) == 1
     assert state.history[0].action == "load"
+
+
+def test_state_has_report_builder():
+    from pyanalytica.core.report_builder import ReportBuilder
+    state = WorkbenchState()
+    assert isinstance(state.report_builder, ReportBuilder)
+    assert state.report_builder.cell_count() == 0
+
+
+def test_notify_report_without_signal():
+    """_notify_report should be safe to call with no signal attached."""
+    state = WorkbenchState()
+    state._notify_report()  # Should not raise
+
+
+def test_notify_report_with_signal():
+    """_notify_report should increment counter when signal is set."""
+    state = WorkbenchState()
+
+    class FakeSignal:
+        def __init__(self):
+            self.value = 0
+        def set(self, v):
+            self.value = v
+
+    sig = FakeSignal()
+    state._report_change_signal = sig
+    state._notify_report()
+    assert sig.value == 1
+    state._notify_report()
+    assert sig.value == 2
