@@ -17,7 +17,7 @@ from pyanalytica.ui.components.dataset_selector import dataset_selector_server, 
 from pyanalytica.ui.modules.data import (
     mod_combine, mod_export, mod_load, mod_profile, mod_transform, mod_view,
 )
-from pyanalytica.ui.modules.explore import mod_crosstab, mod_pivot, mod_summarize
+from pyanalytica.ui.modules.explore import mod_crosstab, mod_pivot, mod_simulate, mod_summarize
 from pyanalytica.ui.modules.visualize import (
     mod_compare, mod_correlate, mod_distribute, mod_relate, mod_timeline,
 )
@@ -87,6 +87,7 @@ def create_app(config: CourseConfig | None = None) -> App:
                 ui.nav_panel("Group By / Summarize", mod_summarize.summarize_ui("summarize")),
                 ui.nav_panel("Pivot", mod_pivot.pivot_ui("pivot")),
                 ui.nav_panel("Cross-tab", mod_crosstab.crosstab_ui("crosstab")),
+                ui.nav_panel("Simulate", mod_simulate.simulate_ui("simulate")),
                 *_section_ext_tabs["Explore"],
             ),
         ),
@@ -197,6 +198,7 @@ def create_app(config: CourseConfig | None = None) -> App:
         mod_summarize.summarize_server("summarize", state=state, get_current_df=current_df)
         mod_pivot.pivot_server("pivot", state=state, get_current_df=current_df)
         mod_crosstab.crosstab_server("crosstab", state=state, get_current_df=current_df)
+        mod_simulate.simulate_server("simulate", state=state)
 
         # Visualize modules
         mod_distribute.distribute_server("distribute", state=state, get_current_df=current_df)
