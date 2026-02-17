@@ -9,7 +9,6 @@ import pandas as pd
 from pyanalytica.core import round_df
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data import transform
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 
@@ -43,7 +42,6 @@ def transform_ui():
         ui.output_text("transform_info"),
         decimals_ui("dec"),
         ui.output_data_frame("preview"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -51,7 +49,6 @@ def transform_ui():
 @module.server
 def transform_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     get_dec = decimals_server("dec")
     _prev_ds_id = reactive.value(None)
     _preview_result = reactive.value(None)  # (df, snippet) or None
@@ -208,7 +205,6 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
                     ))
                     state.codegen.record(snippet)
                     last_code.set(snippet.code)
-                    last_report_info.set(("transform", f"{action} on '{input.col() if action != 'drop_columns' else 'columns'}'", snippet.code, snippet.imports))
                     _preview_result.set(None)
                     ui.notification_show(f"Transform applied: {action}", type="message")
                     break
@@ -242,5 +238,4 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         req(df is not None)
         return render.DataGrid(round_df(df.head(100), get_dec()), height="400px")
 
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

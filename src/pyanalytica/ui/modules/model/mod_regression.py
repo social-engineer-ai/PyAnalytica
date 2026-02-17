@@ -11,7 +11,6 @@ from pyanalytica.core.model_store import ModelArtifact
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.regression import linear_regression
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -39,7 +38,6 @@ def regression_ui():
         ui.output_data_frame("vif_table"),
         ui.output_plot("resid_plot", height="350px"),
         ui.output_plot("qq_plot", height="350px"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -47,7 +45,6 @@ def regression_ui():
 @module.server
 def regression_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     result = reactive.value(None)
     get_dec = decimals_server("dec")
 
@@ -74,7 +71,6 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
             result.set(r)
             state.codegen.record(r.code, action="model", description="Linear regression")
             last_code.set(r.code.code)
-            last_report_info.set(("model", "Linear regression", r.code.code, r.code.imports))
 
             # Save model artifact
             model_name = input.model_name().strip()
@@ -157,5 +153,4 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
         return r.qq_plot
 
     download_result_server("dl", get_df=lambda: result().coefficients, filename="coefficients")
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

@@ -393,6 +393,9 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
     @render.ui
     def cell_editor():
         refresh()
+        # Also react to external "Add to Report" additions
+        if state._report_change_signal is not None:
+            state._report_change_signal()
         cells = builder.get_cells()
         if not cells:
             return ui.div(

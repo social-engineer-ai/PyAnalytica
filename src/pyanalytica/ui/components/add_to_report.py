@@ -47,5 +47,6 @@ def add_to_report_server(
             action=action, description=description,
             code=code, imports=imports,
         )
+        n = state.report_builder.cell_count()
         state._notify_report()
-        ui.notification_show("Added to Report Builder.", type="message")
+        ui.notification_show(f"Added to Report Builder ({n} cells).", type="message")

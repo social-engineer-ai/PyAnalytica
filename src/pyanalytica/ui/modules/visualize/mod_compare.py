@@ -7,7 +7,6 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.visualize.compare import bar_of_means, grouped_boxplot, grouped_violin, strip_plot
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 
 
@@ -37,7 +36,6 @@ def compare_ui():
             ui.output_plot("chart", height="500px"),
             full_screen=True,
         ),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -45,7 +43,6 @@ def compare_ui():
 @module.server
 def compare_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     _last_fig = reactive.value(None)
 
     @reactive.effect
@@ -84,7 +81,6 @@ def compare_server(input, output, session, state: WorkbenchState, get_current_df
 
         state.codegen.record(snippet, action="visualize", description="Comparison plot")
         last_code.set(snippet.code)
-        last_report_info.set(("visualize", "Comparison plot", snippet.code, snippet.imports))
         _last_fig.set(fig)
         return fig
 
@@ -105,5 +101,4 @@ def compare_server(input, output, session, state: WorkbenchState, get_current_df
         req(fig is not None)
         return fig
 
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

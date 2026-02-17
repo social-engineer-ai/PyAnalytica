@@ -97,7 +97,10 @@ def list_sessions() -> list[str]:
 
 
 def delete_session(name: str) -> None:
-    """Delete a saved session file."""
+    """Delete a saved session file and its signature."""
     path = SESSION_DIR / f"{name}.pkl"
+    sig_path = SESSION_DIR / f"{name}.sig"
     if path.exists():
         path.unlink()
+    if sig_path.exists():
+        sig_path.unlink()

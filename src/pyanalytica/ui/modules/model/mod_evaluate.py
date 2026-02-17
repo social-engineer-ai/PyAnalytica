@@ -8,7 +8,6 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.model.evaluate import evaluate_classification
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
@@ -30,7 +29,6 @@ def evaluate_ui():
         ui.output_data_frame("cm_table"),
         download_result_ui("dl"),
         ui.output_plot("roc_plot", height="400px"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -38,7 +36,6 @@ def evaluate_ui():
 @module.server
 def evaluate_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     eval_result = reactive.value(None)
     is_binary = reactive.value(False)
 
@@ -105,7 +102,6 @@ def evaluate_server(input, output, session, state: WorkbenchState, get_current_d
             eval_result.set(r)
             state.codegen.record(r.code, action="model", description="Model evaluation")
             last_code.set(r.code.code)
-            last_report_info.set(("model", "Model evaluation", r.code.code, r.code.imports))
 
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
@@ -141,5 +137,4 @@ def evaluate_server(input, output, session, state: WorkbenchState, get_current_d
         get_df=lambda: eval_result().confusion_matrix.reset_index(),
         filename="confusion_matrix",
     )
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

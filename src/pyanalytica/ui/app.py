@@ -242,11 +242,9 @@ def create_app(config: CourseConfig | None = None) -> App:
 
         # --- Session persistence ---
 
-        @reactive.effect
-        def _auto_save():
-            state._change_signal()
-            if state.datasets:
-                save_session(state, "autosave")
+        # Autosave on session end instead of every state change
+        # (synchronous pickle of large DataFrames blocks the event loop)
+        _ = session.on_ended(lambda: save_session(state, "autosave") if state.datasets else None)
 
         def _refresh_session_choices():
             names = list_sessions()
@@ -271,7 +269,11 @@ def create_app(config: CourseConfig | None = None) -> App:
             if not name or name == "(none)":
                 ui.notification_show("Select a session to load.", type="warning")
                 return
-            loaded = load_session(state, name)
+            try:
+                loaded = load_session(state, name)
+            except ValueError as e:
+                ui.notification_show(str(e), type="error")
+                return
             state._notify()
             ui.notification_show(f"Session '{name}' restored ({len(loaded)} datasets).", type="message")
 

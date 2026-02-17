@@ -8,7 +8,6 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.explore.crosstab import create_crosstab
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -30,7 +29,6 @@ def crosstab_ui():
         decimals_ui("dec"),
         ui.output_data_frame("crosstab_table"),
         download_result_ui("dl"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -38,7 +36,6 @@ def crosstab_ui():
 @module.server
 def crosstab_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     get_dec = decimals_server("dec")
 
     @reactive.effect
@@ -64,7 +61,6 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
         ct_result = create_crosstab(df, row, col, normalize=normalize, margins=input.margins())
         state.codegen.record(ct_result.code, action="explore", description="Cross-tabulation")
         last_code.set(ct_result.code.code)
-        last_report_info.set(("explore", "Cross-tabulation", ct_result.code.code, ct_result.code.imports))
         return ct_result
 
     @render.ui
@@ -88,5 +84,4 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
         return render.DataGrid(round_df(r.table.reset_index(), get_dec()), height="400px")
 
     download_result_server("dl", get_df=lambda: result().table.reset_index(), filename="crosstab")
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

@@ -12,7 +12,6 @@ from pyanalytica.explore.simulate import (
     simulate_distribution,
     simulate_lln,
 )
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -59,7 +58,6 @@ def simulate_ui():
         ui.tags.h6("Goodness-of-Fit Tests", class_="mt-3 mb-1"),
         ui.output_data_frame("fit_table"),
         download_result_ui("dl"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -67,7 +65,6 @@ def simulate_ui():
 @module.server
 def simulate_server(input, output, session, state: WorkbenchState):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     _last_fig = reactive.value(None)
     _last_summary = reactive.value(None)
     _last_fit_test = reactive.value(None)
@@ -206,7 +203,6 @@ def simulate_server(input, output, session, state: WorkbenchState):
             _last_interpretation.set(result.prob_description)
             state.codegen.record(result.code, action="explore", description="Distribution simulation")
             last_code.set(result.code.code)
-            last_report_info.set(("explore", "Distribution simulation", result.code.code, result.code.imports))
             return result
 
         elif mode == "clt":
@@ -219,7 +215,6 @@ def simulate_server(input, output, session, state: WorkbenchState):
             _last_interpretation.set(result.interpretation)
             state.codegen.record(result.code, action="explore", description="CLT simulation")
             last_code.set(result.code.code)
-            last_report_info.set(("explore", "CLT simulation", result.code.code, result.code.imports))
             return result
 
         elif mode == "lln":
@@ -231,7 +226,6 @@ def simulate_server(input, output, session, state: WorkbenchState):
             _last_interpretation.set(result.interpretation)
             state.codegen.record(result.code, action="explore", description="LLN simulation")
             last_code.set(result.code.code)
-            last_report_info.set(("explore", "LLN simulation", result.code.code, result.code.imports))
             return result
 
     # --- Outputs ---
@@ -277,5 +271,4 @@ def simulate_server(input, output, session, state: WorkbenchState):
         return _last_summary()
 
     download_result_server("dl", get_df=_get_summary, filename="simulation")
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

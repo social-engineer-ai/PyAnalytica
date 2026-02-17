@@ -7,7 +7,6 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.cluster import hierarchical_cluster, kmeans_cluster
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
 
@@ -29,7 +28,6 @@ def cluster_ui():
         ui.h5("Cluster Profiles"),
         ui.output_data_frame("profiles"),
         download_result_ui("dl"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -37,7 +35,6 @@ def cluster_ui():
 @module.server
 def cluster_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     result = reactive.value(None)
 
     @reactive.effect
@@ -61,7 +58,6 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
             result.set(r)
             state.codegen.record(r.code, action="model", description="Cluster analysis")
             last_code.set(r.code.code)
-            last_report_info.set(("model", "K-means clustering", r.code.code, r.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -98,5 +94,4 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
         get_df=lambda: result().cluster_profiles.reset_index(),
         filename="cluster_profiles",
     )
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

@@ -8,7 +8,6 @@ from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
 from pyanalytica.analyze.proportions import chi_square_test, goodness_of_fit_test
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -30,7 +29,6 @@ def proportions_ui():
         decimals_ui("dec"),
         ui.output_ui("result_tables"),
         download_result_ui("dl"),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -38,7 +36,6 @@ def proportions_ui():
 @module.server
 def proportions_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     indep_result = reactive.value(None)
     gof_result = reactive.value(None)
     last_test_type = reactive.value(None)
@@ -91,7 +88,6 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
                 last_test_type.set("independence")
                 state.codegen.record(r.code, action="analyze", description="Chi-square test of independence")
                 last_code.set(r.code.code)
-                last_report_info.set(("analyze", "Chi-square test of independence", r.code.code, r.code.imports))
             else:
                 var = input.gof_var()
                 req(var)
@@ -107,7 +103,6 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
                 last_test_type.set("goodness_of_fit")
                 state.codegen.record(r.code, action="analyze", description="Chi-square goodness-of-fit test")
                 last_code.set(r.code.code)
-                last_report_info.set(("analyze", "Chi-square goodness-of-fit test", r.code.code, r.code.imports))
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
@@ -175,5 +170,4 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
             return r.table if r else None
 
     download_result_server("dl", get_df=_get_dl_df, filename="proportions")
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

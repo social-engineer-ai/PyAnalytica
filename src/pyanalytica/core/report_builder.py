@@ -179,23 +179,32 @@ class ReportBuilder:
         import pandas as _pd
 
         # Restrict builtins to prevent access to dangerous functions
+        _blocked = {
+            "exec", "eval", "compile",
+            "open", "input", "breakpoint", "exit", "quit",
+            "getattr", "setattr", "delattr", "globals", "locals",
+            "vars",
+        }
         _safe_builtins = {
             k: v for k, v in __builtins__.items()
-            if k not in (
-                "__import__", "exec", "eval", "compile",
-                "open", "input", "breakpoint", "exit", "quit",
-                "getattr", "setattr", "delattr", "globals", "locals",
-                "vars", "memoryview", "classmethod", "staticmethod",
-            )
+            if k not in _blocked
         } if isinstance(__builtins__, dict) else {
             k: getattr(__builtins__, k) for k in dir(__builtins__)
-            if k not in (
-                "__import__", "exec", "eval", "compile",
-                "open", "input", "breakpoint", "exit", "quit",
-                "getattr", "setattr", "delattr", "globals", "locals",
-                "vars", "memoryview", "classmethod", "staticmethod",
-            ) and not k.startswith("_")
+            if k not in _blocked and not k.startswith("_")
         }
+        # Allow __import__ so that import statements in cell code work
+        import builtins as _bi
+        _safe_builtins["__import__"] = _bi.__import__
+
+        # Pre-import common libraries so cell code can use them
+        try:
+            import seaborn as _sns
+        except ImportError:
+            _sns = None
+        try:
+            from scipy import stats as _stats
+        except ImportError:
+            _stats = None
 
         namespace: dict = {
             "__builtins__": _safe_builtins,
@@ -203,6 +212,10 @@ class ReportBuilder:
             "np": np,
             "plt": plt,
         }
+        if _sns is not None:
+            namespace["sns"] = _sns
+        if _stats is not None:
+            namespace["stats"] = _stats
         # Provide the current dataframe
         if df is not None:
             namespace["df"] = df.copy()
@@ -213,12 +226,18 @@ class ReportBuilder:
             if not cell.enabled or cell.cell_type != CellType.CODE:
                 continue
 
-            # Execute imports
+            # Execute imports (use real builtins so import statements work)
+            import builtins as _builtins_mod
+            _import_ns = {"__builtins__": _builtins_mod}
             for imp in cell.imports:
                 try:
-                    exec(imp, namespace)  # noqa: S102
+                    exec(imp, _import_ns)  # noqa: S102
                 except Exception:
                     logging.getLogger(__name__).debug("Import failed: %s", imp, exc_info=True)
+            # Merge imported names into execution namespace
+            for k, v in _import_ns.items():
+                if k != "__builtins__":
+                    namespace[k] = v
 
             # Capture stdout
             old_stdout = sys.stdout

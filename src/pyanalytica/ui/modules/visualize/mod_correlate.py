@@ -7,7 +7,6 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.visualize.correlate import correlation_matrix, pair_plot
-from pyanalytica.ui.components.add_to_report import add_to_report_server, add_to_report_ui
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 
 
@@ -35,7 +34,6 @@ def correlate_ui():
             ui.output_plot("chart", height="600px"),
             full_screen=True,
         ),
-        add_to_report_ui("rpt"),
         code_panel_ui("code"),
     )
 
@@ -43,7 +41,6 @@ def correlate_ui():
 @module.server
 def correlate_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    last_report_info = reactive.value(None)
     _last_fig = reactive.value(None)
 
     @reactive.effect
@@ -68,7 +65,6 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
 
         state.codegen.record(snippet, action="visualize", description="Correlation plot")
         last_code.set(snippet.code)
-        last_report_info.set(("visualize", "Correlation plot", snippet.code, snippet.imports))
         _last_fig.set(fig)
         return fig
 
@@ -89,5 +85,4 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
         req(fig is not None)
         return fig
 
-    add_to_report_server("rpt", state=state, get_code_info=last_report_info)
     code_panel_server("code", get_code=last_code)

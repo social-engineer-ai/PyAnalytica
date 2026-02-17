@@ -65,7 +65,8 @@ def notebook_ui():
             ),
             ui.tags.hr(),
             ui.h6("Session Info"),
-            ui.output_text("session_stats"),
+            ui.output_ui("session_stats"),
+            ui.input_action_button("refresh_stats", "Refresh", class_="btn-sm btn-outline-secondary w-100 mt-1"),
             width=280,
         ),
         # --- Main panel ---
@@ -95,18 +96,26 @@ def notebook_ui():
 @module.server
 def notebook_server(input, output, session, state: WorkbenchState, get_current_df):
 
+    # Local refresh counter — bumped by button click
+    _refresh = reactive.value(0)
+
+    @reactive.effect
+    @reactive.event(input.refresh_stats)
+    def _bump_refresh():
+        _refresh.set(_refresh() + 1)
+
     # ------------------------------------------------------------------
-    # Session stats text
+    # Session stats
     # ------------------------------------------------------------------
-    @render.text
+    @render.ui
     def session_stats():
+        _refresh()
         n_ops = len(state.history)
         n_datasets = len(state.datasets)
         n_snippets = len(state.codegen)
-        return (
-            f"Operations: {n_ops}\n"
-            f"Datasets: {n_datasets}\n"
-            f"Code snippets: {n_snippets}"
+        return ui.tags.small(
+            f"Operations: {n_ops} | Datasets: {n_datasets} | Snippets: {n_snippets}",
+            class_="text-muted",
         )
 
     # ------------------------------------------------------------------
@@ -114,6 +123,7 @@ def notebook_server(input, output, session, state: WorkbenchState, get_current_d
     # ------------------------------------------------------------------
     @render.ui
     def history_list():
+        _refresh()
         ops = state.history
         if not ops:
             return ui.tags.div(
@@ -156,6 +166,7 @@ def notebook_server(input, output, session, state: WorkbenchState, get_current_d
     # ------------------------------------------------------------------
     @render.ui
     def code_preview():
+        _refresh()
         codegen = state.codegen
         if not codegen:
             return ui.tags.div(
