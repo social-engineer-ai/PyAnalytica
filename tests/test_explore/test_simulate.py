@@ -184,3 +184,38 @@ def test_seed_reproducibility():
     r1 = simulate_distribution("normal", params, sample_size=100, seed=99)
     r2 = simulate_distribution("normal", params, sample_size=100, seed=99)
     np.testing.assert_array_equal(r1.samples, r2.samples)
+
+
+# ===== Goodness-of-fit tests (5) =====
+
+
+def test_fit_test_continuous_has_ks():
+    """Continuous distribution fit test includes KS test."""
+    r = simulate_distribution("normal", {"loc": 0, "scale": 1}, sample_size=1000, seed=42)
+    assert "Kolmogorov-Smirnov" in r.fit_test["Test"].values
+
+
+def test_fit_test_discrete_has_chisq():
+    """Discrete distribution fit test includes Chi-square test."""
+    r = simulate_distribution("binomial", {"n": 20, "p": 0.5}, sample_size=1000, seed=42)
+    assert "Chi-square Goodness-of-Fit" in r.fit_test["Test"].values
+
+
+def test_fit_test_good_fit_normal():
+    """Normal sample from Normal dist should pass goodness-of-fit (p >= 0.05)."""
+    r = simulate_distribution("normal", {"loc": 0, "scale": 1}, sample_size=500, seed=42)
+    ks_row = r.fit_test[r.fit_test["Test"] == "Kolmogorov-Smirnov"]
+    assert ks_row["p-value"].iloc[0] >= 0.05
+
+
+def test_clt_normality_test():
+    """CLT fit test includes Shapiro-Wilk and KS normality tests."""
+    r = simulate_clt("normal", {"loc": 0, "scale": 1}, num_samples=500, seed=42)
+    assert "Shapiro-Wilk (normality of means)" in r.fit_test["Test"].values
+    assert "Kolmogorov-Smirnov (vs Normal)" in r.fit_test["Test"].values
+
+
+def test_lln_fit_test_columns():
+    """LLN fit test has expected columns."""
+    r = simulate_lln("exponential", {"scale": 2.0}, max_obs=3000, seed=42)
+    assert list(r.fit_test.columns) == ["Test", "Statistic", "p-value", "Result"]

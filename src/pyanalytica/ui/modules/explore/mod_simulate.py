@@ -41,6 +41,7 @@ def simulate_ui():
         ui.sidebar(
             ui.input_select("mode", "Simulation", choices=_MODE_CHOICES),
             ui.input_select("dist", "Distribution", choices=_DIST_CHOICES),
+            ui.output_ui("dist_description"),
             ui.output_ui("dist_params"),
             ui.output_ui("mode_controls"),
             ui.input_numeric("seed", "Seed (optional)", value=None, min=0),
@@ -55,6 +56,8 @@ def simulate_ui():
         ),
         decimals_ui("dec"),
         ui.output_data_frame("stats_table"),
+        ui.tags.h6("Goodness-of-Fit Tests", class_="mt-3 mb-1"),
+        ui.output_data_frame("fit_table"),
         download_result_ui("dl"),
         add_to_report_ui("rpt"),
         code_panel_ui("code"),
@@ -67,8 +70,27 @@ def simulate_server(input, output, session, state: WorkbenchState):
     last_report_info = reactive.value(None)
     _last_fig = reactive.value(None)
     _last_summary = reactive.value(None)
+    _last_fit_test = reactive.value(None)
     _last_interpretation = reactive.value("")
     get_dec = decimals_server("dec")
+
+    # --- Distribution description ---
+
+    @render.ui
+    def dist_description():
+        dist_name = input.dist()
+        req(dist_name)
+        info = DISTRIBUTIONS.get(dist_name, {})
+        rv = info.get("rv", "")
+        desc = info.get("description", "")
+        return ui.div(
+            ui.tags.strong("Random variable: ", style="font-size: 0.85em;"),
+            ui.tags.span(rv, style="font-size: 0.85em;"),
+            ui.tags.br(),
+            ui.tags.small(desc, class_="text-muted"),
+            class_="alert alert-light py-2 px-2 mb-2",
+            style="font-size: 0.82em; line-height: 1.4;",
+        )
 
     # --- Dynamic UI for distribution parameters ---
 
@@ -180,6 +202,7 @@ def simulate_server(input, output, session, state: WorkbenchState):
             )
             _last_fig.set(result.figure)
             _last_summary.set(result.summary)
+            _last_fit_test.set(result.fit_test)
             _last_interpretation.set(result.prob_description)
             state.codegen.record(result.code, action="explore", description="Distribution simulation")
             last_code.set(result.code.code)
@@ -192,6 +215,7 @@ def simulate_server(input, output, session, state: WorkbenchState):
             result = simulate_clt(dist_name, params, sample_size=clt_n, num_samples=clt_k, seed=seed)
             _last_fig.set(result.figure)
             _last_summary.set(result.summary)
+            _last_fit_test.set(result.fit_test)
             _last_interpretation.set(result.interpretation)
             state.codegen.record(result.code, action="explore", description="CLT simulation")
             last_code.set(result.code.code)
@@ -203,6 +227,7 @@ def simulate_server(input, output, session, state: WorkbenchState):
             result = simulate_lln(dist_name, params, max_obs=lln_max, seed=seed)
             _last_fig.set(result.figure)
             _last_summary.set(result.summary)
+            _last_fit_test.set(result.fit_test)
             _last_interpretation.set(result.interpretation)
             state.codegen.record(result.code, action="explore", description="LLN simulation")
             last_code.set(result.code.code)
@@ -240,6 +265,13 @@ def simulate_server(input, output, session, state: WorkbenchState):
         df = _last_summary()
         req(df is not None)
         return render.DataGrid(round_df(df, get_dec()), height="200px")
+
+    @render.data_frame
+    def fit_table():
+        _run()
+        df = _last_fit_test()
+        req(df is not None)
+        return render.DataGrid(round_df(df, get_dec()), height="150px")
 
     def _get_summary():
         return _last_summary()
