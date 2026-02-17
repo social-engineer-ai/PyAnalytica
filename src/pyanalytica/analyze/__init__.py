@@ -5,7 +5,9 @@ from pyanalytica.analyze.means import (
     kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
 )
 from pyanalytica.analyze.normality import NormalityResult, shapiro_wilk_test
-from pyanalytica.analyze.proportions import chi_square_test
+from pyanalytica.analyze.proportions import (
+    GoodnessOfFitResult, chi_square_test, goodness_of_fit_test,
+)
 
 __all__ = [
     "correlation_test",
@@ -17,4 +19,6 @@ __all__ = [
     "shapiro_wilk_test",
     "NormalityResult",
     "chi_square_test",
+    "goodness_of_fit_test",
+    "GoodnessOfFitResult",
 ]

@@ -3,7 +3,9 @@
 import pandas as pd
 import pytest
 
-from pyanalytica.analyze.proportions import ProportionsResult, chi_square_test
+from pyanalytica.analyze.proportions import (
+    GoodnessOfFitResult, ProportionsResult, chi_square_test, goodness_of_fit_test,
+)
 
 
 @pytest.fixture
@@ -94,3 +96,72 @@ def test_cramers_v_strong_association():
 def test_cramers_v_in_interpretation(df):
     result = chi_square_test(df, "gender", "preference")
     assert "Cramer's V" in result.interpretation
+
+
+# --- Goodness-of-fit tests ---
+
+@pytest.fixture
+def gof_df():
+    return pd.DataFrame({
+        "color": ["red"] * 30 + ["blue"] * 30 + ["green"] * 30,
+    })
+
+
+def test_gof_uniform(gof_df):
+    """Default uniform expected, result fields correct."""
+    result = goodness_of_fit_test(gof_df, "color")
+    assert isinstance(result, GoodnessOfFitResult)
+    assert result.chi2 >= 0
+    assert 0 <= result.p_value <= 1
+    assert result.dof >= 1
+
+
+def test_gof_custom_probs(gof_df):
+    """User-provided proportions produce correct expected counts."""
+    probs = {"blue": 0.5, "green": 0.25, "red": 0.25}
+    result = goodness_of_fit_test(gof_df, "color", expected_probs=probs)
+    expected_vals = result.table.set_index("Category")["Expected"]
+    assert expected_vals["blue"] == pytest.approx(45.0, abs=0.1)
+    assert expected_vals["green"] == pytest.approx(22.5, abs=0.1)
+    assert expected_vals["red"] == pytest.approx(22.5, abs=0.1)
+
+
+def test_gof_significant():
+    """Data deviating from expected -> p < 0.05."""
+    df = pd.DataFrame({"x": ["A"] * 80 + ["B"] * 10 + ["C"] * 10})
+    result = goodness_of_fit_test(df, "x")
+    assert result.p_value < 0.05
+    assert "differs significantly" in result.interpretation
+
+
+def test_gof_not_significant(gof_df):
+    """Data matching expected -> p >= 0.05."""
+    result = goodness_of_fit_test(gof_df, "color")
+    assert result.p_value >= 0.05
+    assert "does not differ significantly" in result.interpretation
+
+
+def test_gof_result_table(gof_df):
+    """Table has correct columns and row count."""
+    result = goodness_of_fit_test(gof_df, "color")
+    assert list(result.table.columns) == ["Category", "Observed", "Expected", "Residual"]
+    assert len(result.table) == 3  # red, blue, green
+
+
+def test_gof_code_snippet(gof_df):
+    """Code contains chisquare."""
+    result = goodness_of_fit_test(gof_df, "color")
+    assert "chisquare" in result.code.code
+
+
+def test_gof_interpretation(gof_df):
+    """Interpretation text mentions variable name."""
+    result = goodness_of_fit_test(gof_df, "color")
+    assert "color" in result.interpretation
+
+
+def test_gof_dof(gof_df):
+    """dof = number of categories - 1."""
+    result = goodness_of_fit_test(gof_df, "color")
+    n_categories = gof_df["color"].nunique()
+    assert result.dof == n_categories - 1
