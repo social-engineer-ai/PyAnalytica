@@ -5,7 +5,6 @@ Run: python -m pyanalytica.datasets.generate
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -82,124 +81,175 @@ def generate_tips() -> None:
     print(f"  tips: {len(df)} rows -> {out / 'tips.csv'}")
 
 
-def generate_jobmatch() -> None:
-    """Generate the JobMatch recruiting simulation (4 tables)."""
-    rng = _RNG
+def generate_titanic() -> None:
+    """Generate a Titanic dataset similar to the classic Kaggle version."""
+    n = 891
+    rng = np.random.default_rng(1912)
 
-    # --- Companies (200) ---
-    n_companies = 200
-    industries = ["Technology", "Healthcare", "Finance", "Retail", "Manufacturing",
-                  "Consulting", "Education", "Energy", "Media", "Real Estate"]
-    sizes = ["Small", "Medium", "Large", "Enterprise"]
+    # Passenger class distribution (approx historical)
+    pclass = rng.choice([1, 2, 3], size=n, p=[0.24, 0.21, 0.55])
 
-    companies = pd.DataFrame({
-        "company_id": range(1, n_companies + 1),
-        "company_name": [f"Company_{i:03d}" for i in range(1, n_companies + 1)],
-        "industry": rng.choice(industries, size=n_companies),
-        "company_size": rng.choice(sizes, size=n_companies, p=[0.30, 0.35, 0.25, 0.10]),
-        "founded_year": rng.integers(1950, 2024, size=n_companies),
-        "headquarters": rng.choice(
-            ["New York", "San Francisco", "Chicago", "Austin", "Boston",
-             "Seattle", "Denver", "Atlanta", "Miami", "Los Angeles"],
-            size=n_companies
-        ),
+    # Sex distribution
+    sex = rng.choice(["male", "female"], size=n, p=[0.65, 0.35])
+
+    # Age: varies by class
+    age = np.zeros(n)
+    for i in range(n):
+        if pclass[i] == 1:
+            age[i] = rng.normal(38, 14)
+        elif pclass[i] == 2:
+            age[i] = rng.normal(30, 13)
+        else:
+            age[i] = rng.normal(25, 12)
+    age = age.clip(0.42, 80).round(1)
+    # ~20% missing ages
+    age_missing = rng.choice(n, size=int(n * 0.20), replace=False)
+    age_float = age.copy()
+
+    # SibSp and Parch
+    sibsp = rng.choice([0, 1, 2, 3, 4, 5, 8], size=n,
+                       p=[0.68, 0.23, 0.03, 0.02, 0.02, 0.01, 0.01])
+    parch = rng.choice([0, 1, 2, 3, 4, 5, 6], size=n,
+                       p=[0.76, 0.12, 0.08, 0.01, 0.01, 0.01, 0.01])
+
+    # Fare: correlated with class
+    fare = np.zeros(n)
+    for i in range(n):
+        if pclass[i] == 1:
+            fare[i] = rng.lognormal(3.8, 0.7)
+        elif pclass[i] == 2:
+            fare[i] = rng.lognormal(2.7, 0.5)
+        else:
+            fare[i] = rng.lognormal(2.0, 0.6)
+    fare = fare.clip(0, 512.33).round(4)
+
+    # Embarked
+    embarked = rng.choice(["S", "C", "Q"], size=n, p=[0.72, 0.19, 0.09])
+
+    # Survival: depends on sex, class, age
+    survived = np.zeros(n, dtype=int)
+    for i in range(n):
+        base_prob = 0.38  # overall survival rate
+        if sex[i] == "female":
+            base_prob += 0.35
+        if pclass[i] == 1:
+            base_prob += 0.15
+        elif pclass[i] == 3:
+            base_prob -= 0.12
+        if age_float[i] < 10:
+            base_prob += 0.15
+        elif age_float[i] > 60:
+            base_prob -= 0.10
+        base_prob = np.clip(base_prob, 0.05, 0.95)
+        survived[i] = 1 if rng.random() < base_prob else 0
+
+    # Names (synthetic but realistic format)
+    first_names_m = [
+        "James", "John", "William", "Robert", "Charles", "George", "Edward",
+        "Thomas", "Henry", "Arthur", "Joseph", "Albert", "Harry", "Walter",
+        "Frederick", "Frank", "Samuel", "Patrick", "Daniel", "Michael",
+        "Oscar", "Ernest", "Herbert", "Alfred", "Bernard", "Peter", "Louis",
+        "Alexander", "Victor", "Eugene", "Leo", "Karl", "Ivan", "Erik",
+        "Hans", "Olaf", "Lars", "Nils", "Johan", "Gustav",
+    ]
+    first_names_f = [
+        "Mary", "Anna", "Elizabeth", "Margaret", "Ellen", "Catherine", "Alice",
+        "Edith", "Florence", "Helen", "Sarah", "Jane", "Julia", "Bertha",
+        "Emma", "Clara", "Mabel", "Lillian", "Eva", "Rosa",
+        "Agnes", "Elsa", "Ingrid", "Maria", "Helga", "Hilda",
+        "Amelia", "Dorothy", "Ethel", "Gladys",
+    ]
+    last_names = [
+        "Smith", "Johnson", "Brown", "Williams", "Jones", "Davis", "Wilson",
+        "Anderson", "Taylor", "Thomas", "Moore", "Martin", "Thompson",
+        "White", "Harris", "Clark", "Lewis", "Hall", "Allen", "Young",
+        "King", "Wright", "Hill", "Green", "Baker", "Nelson", "Carter",
+        "Mitchell", "Roberts", "Turner", "Phillips", "Campbell", "Parker",
+        "Evans", "Edwards", "Collins", "Stewart", "Morris", "Murphy",
+        "Cook", "Rogers", "Morgan", "Cooper", "Reed", "Bailey",
+        "Kelly", "Howard", "Ward", "Cox", "Peterson", "Gray",
+        "O'Brien", "Sullivan", "McCarthy", "O'Connor", "Fitzgerald",
+        "Andersson", "Johansson", "Eriksson", "Lindqvist", "Olsen",
+        "Hansen", "Pedersen", "Larsen", "Jensen", "Nielsen",
+        "Mueller", "Schmidt", "Fischer", "Weber", "Meyer",
+        "Rossi", "Bianchi", "Marino", "Ricci", "Romano",
+    ]
+    titles_m = ["Mr.", "Master", "Rev.", "Dr.", "Col.", "Major", "Capt."]
+    titles_f = ["Miss", "Mrs.", "Ms.", "Lady", "Countess"]
+    title_prob_m = [0.82, 0.06, 0.04, 0.04, 0.02, 0.01, 0.01]
+    title_prob_f = [0.45, 0.45, 0.05, 0.03, 0.02]
+
+    names = []
+    for i in range(n):
+        last = rng.choice(last_names)
+        if sex[i] == "male":
+            first = rng.choice(first_names_m)
+            title = rng.choice(titles_m, p=title_prob_m)
+            if age_float[i] < 14:
+                title = "Master"
+        else:
+            first = rng.choice(first_names_f)
+            title = rng.choice(titles_f, p=title_prob_f)
+        names.append(f"{last}, {title} {first}")
+
+    # Ticket numbers
+    ticket_prefixes = ["", "A/5", "PC", "STON/O", "S.O.C.", "C.A.", "W./C.", "SOTON/OQ", "F.C.C."]
+    tickets = []
+    for _ in range(n):
+        prefix = rng.choice(ticket_prefixes, p=[0.60, 0.06, 0.08, 0.05, 0.04, 0.06, 0.04, 0.04, 0.03])
+        num = rng.integers(1000, 999999)
+        if prefix:
+            tickets.append(f"{prefix} {num}")
+        else:
+            tickets.append(str(num))
+
+    # Cabin (mostly missing, more present for 1st class)
+    cabin_letters = ["A", "B", "C", "D", "E", "F", "G", "T"]
+    cabin = []
+    for i in range(n):
+        if pclass[i] == 1:
+            has_cabin = rng.random() < 0.60
+        elif pclass[i] == 2:
+            has_cabin = rng.random() < 0.15
+        else:
+            has_cabin = rng.random() < 0.05
+        if has_cabin:
+            letter = rng.choice(cabin_letters[:6] if pclass[i] <= 2 else cabin_letters)
+            room = rng.integers(1, 150)
+            cabin.append(f"{letter}{room}")
+        else:
+            cabin.append(np.nan)
+
+    # Build DataFrame
+    df = pd.DataFrame({
+        "PassengerId": range(1, n + 1),
+        "Survived": survived,
+        "Pclass": pclass,
+        "Name": names,
+        "Sex": sex,
+        "Age": age_float,
+        "SibSp": sibsp,
+        "Parch": parch,
+        "Ticket": tickets,
+        "Fare": fare,
+        "Cabin": cabin,
+        "Embarked": embarked,
     })
 
-    # --- Candidates (5000) ---
-    n_candidates = 5000
-    seniority_levels = ["Entry", "Junior", "Mid", "Senior", "Executive"]
-    degrees = ["High School", "Associate", "Bachelor", "Master", "PhD"]
+    # Set missing ages to NaN
+    df.loc[age_missing, "Age"] = np.nan
 
-    age = rng.normal(32, 8, size=n_candidates).clip(22, 65).astype(int)
-    seniority = rng.choice(seniority_levels, size=n_candidates, p=[0.20, 0.25, 0.30, 0.18, 0.07])
-    degree = rng.choice(degrees, size=n_candidates, p=[0.05, 0.08, 0.45, 0.32, 0.10])
-
-    experience_base = {"Entry": 1, "Junior": 3, "Mid": 6, "Senior": 10, "Executive": 15}
-    experience = np.array([
-        max(0, rng.normal(experience_base[s], 2)) for s in seniority
-    ]).clip(0, 40).round(1)
-
-    salary_base = {"Entry": 52000, "Junior": 65000, "Mid": 82000, "Senior": 105000, "Executive": 145000}
-    salary = np.array([
-        rng.normal(salary_base[s], salary_base[s] * 0.15) for s in seniority
-    ]).clip(30000, 300000).round(0).astype(int)
-
-    gender = rng.choice(["Male", "Female", "Non-binary"], size=n_candidates, p=[0.48, 0.48, 0.04])
-
-    # Add some missing values (~3% in salary, ~5% in experience)
-    salary_float = salary.astype(float)
-    salary_float[rng.choice(n_candidates, size=int(n_candidates * 0.03), replace=False)] = np.nan
-    experience_arr = experience.copy()
-    experience_arr[rng.choice(n_candidates, size=int(n_candidates * 0.05), replace=False)] = np.nan
-
-    candidates = pd.DataFrame({
-        "candidate_id": range(1, n_candidates + 1),
-        "age": age,
-        "gender": gender,
-        "degree": degree,
-        "seniority": seniority,
-        "experience_years": experience_arr,
-        "current_salary": salary_float,
-        "city": rng.choice(
-            ["New York", "San Francisco", "Chicago", "Austin", "Boston",
-             "Seattle", "Denver", "Atlanta", "Remote", "Los Angeles"],
-            size=n_candidates
-        ),
-        "skills_count": rng.poisson(5, size=n_candidates).clip(1, 20),
-    })
-
-    # --- Jobs (500) ---
-    n_jobs = 500
-    job_seniority = rng.choice(seniority_levels, size=n_jobs, p=[0.20, 0.25, 0.30, 0.18, 0.07])
-    job_company = rng.integers(1, n_companies + 1, size=n_jobs)
-
-    min_salary = np.array([salary_base[s] * 0.8 for s in job_seniority]).astype(int)
-    max_salary = np.array([salary_base[s] * 1.3 for s in job_seniority]).astype(int)
-
-    jobs = pd.DataFrame({
-        "job_id": range(1, n_jobs + 1),
-        "company_id": job_company,
-        "title": [f"{s} Analyst" if rng.random() > 0.5 else f"{s} Engineer"
-                  for s in job_seniority],
-        "seniority": job_seniority,
-        "min_salary": min_salary,
-        "max_salary": max_salary,
-        "remote_ok": rng.choice([True, False], size=n_jobs, p=[0.40, 0.60]),
-        "posted_date": pd.date_range("2025-01-01", periods=n_jobs, freq="4h").strftime("%Y-%m-%d"),
-    })
-
-    # --- Events (~50K for manageability) ---
-    event_types = ["application", "screen", "interview", "offer", "hire", "reject"]
-    event_probs = [0.40, 0.20, 0.15, 0.10, 0.08, 0.07]
-
-    n_events = 50000
-    events = pd.DataFrame({
-        "event_id": range(1, n_events + 1),
-        "candidate_id": rng.integers(1, n_candidates + 1, size=n_events),
-        "job_id": rng.integers(1, n_jobs + 1, size=n_events),
-        "event_type": rng.choice(event_types, size=n_events, p=event_probs),
-        "event_date": pd.date_range("2025-01-01", periods=n_events, freq="10min").strftime("%Y-%m-%d"),
-        "rating": rng.choice([np.nan, 1, 2, 3, 4, 5], size=n_events, p=[0.40, 0.05, 0.10, 0.20, 0.15, 0.10]),
-    })
-
-    # Save all
-    out = _DIR / "jobmatch"
+    out = _DIR / "titanic"
     out.mkdir(exist_ok=True)
-    companies.to_csv(out / "companies.csv", index=False)
-    candidates.to_csv(out / "candidates.csv", index=False)
-    jobs.to_csv(out / "jobs.csv", index=False)
-    events.to_csv(out / "events.csv", index=False)
-    print(f"  companies: {len(companies)} rows")
-    print(f"  candidates: {len(candidates)} rows")
-    print(f"  jobs: {len(jobs)} rows")
-    print(f"  events: {len(events)} rows")
+    df.to_csv(out / "titanic.csv", index=False)
+    print(f"  titanic: {len(df)} rows -> {out / 'titanic.csv'}")
 
 
 def main():
     print("Generating PyAnalytica bundled datasets...")
     generate_diamonds()
     generate_tips()
-    generate_jobmatch()
+    generate_titanic()
     print("Done!")
 
 

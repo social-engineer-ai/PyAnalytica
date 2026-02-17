@@ -47,7 +47,7 @@ course:
   institution: "Test University"
 theme: "gies"
 datasets:
-  bundled: ["jobmatch"]
+  bundled: ["titanic"]
 menus:
   data: true
   explore: true
@@ -60,7 +60,7 @@ menus:
 
     assert config.course_name == "Test Course"
     assert config.theme == "gies"
-    assert "jobmatch" in config.bundled_datasets
+    assert "titanic" in config.bundled_datasets
 
 
 def test_load_nonexistent_raises():

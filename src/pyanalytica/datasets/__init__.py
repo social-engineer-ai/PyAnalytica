@@ -29,29 +29,10 @@ _DATASET_INFO: dict[str, dict] = {
         "source": "seaborn / R reshape2",
         "files": ["tips.csv"],
     },
-    "candidates": {
-        "description": "JobMatch recruiting simulation — 5,000 job candidates",
-        "source": "PyAnalytica synthetic",
-        "files": ["candidates.csv"],
-        "group": "jobmatch",
-    },
-    "jobs": {
-        "description": "JobMatch recruiting simulation — 500 job postings",
-        "source": "PyAnalytica synthetic",
-        "files": ["jobs.csv"],
-        "group": "jobmatch",
-    },
-    "companies": {
-        "description": "JobMatch recruiting simulation — 200 companies",
-        "source": "PyAnalytica synthetic",
-        "files": ["companies.csv"],
-        "group": "jobmatch",
-    },
-    "events": {
-        "description": "JobMatch recruiting simulation — recruiting events",
-        "source": "PyAnalytica synthetic",
-        "files": ["events.csv"],
-        "group": "jobmatch",
+    "titanic": {
+        "description": "Titanic passenger survival data (891 observations)",
+        "source": "Kaggle / R datasets",
+        "files": ["titanic.csv"],
     },
 }
 
@@ -84,12 +65,6 @@ def list_datasets() -> list[str]:
 
 def load_dataset(name: str) -> pd.DataFrame:
     """Load a bundled dataset by name."""
-    if name == "jobmatch":
-        raise ValueError(
-            "Use load_dataset('candidates'), load_dataset('jobs'), "
-            "load_dataset('companies'), or load_dataset('events') individually."
-        )
-
     if name not in _DATASET_INFO:
         # Check extension datasets before raising
         if name in _extension_datasets:
@@ -98,12 +73,7 @@ def load_dataset(name: str) -> pd.DataFrame:
         raise ValueError(f"Unknown dataset '{name}'. Available: {available}")
 
     info = _DATASET_INFO[name]
-    group = info.get("group")
-
-    if group:
-        csv_path = _DATASETS_DIR / group / info["files"][0]
-    else:
-        csv_path = _DATASETS_DIR / name / info["files"][0]
+    csv_path = _DATASETS_DIR / name / info["files"][0]
 
     if not csv_path.exists():
         raise FileNotFoundError(

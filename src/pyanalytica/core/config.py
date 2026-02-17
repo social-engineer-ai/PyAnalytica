@@ -20,7 +20,7 @@ class CourseConfig:
     course_name: str = "PyAnalytica"
     institution: str = ""
     theme: str = "default"
-    bundled_datasets: list[str] = field(default_factory=lambda: ["diamonds", "tips"])
+    bundled_datasets: list[str] = field(default_factory=lambda: ["diamonds", "tips", "titanic"])
     menus: dict[str, Any] = field(default_factory=lambda: {
         "data": True,
         "explore": True,
