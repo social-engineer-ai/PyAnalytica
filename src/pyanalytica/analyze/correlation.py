@@ -46,18 +46,11 @@ def correlation_test(
     else:
         raise ValueError(f"Unknown method: {method}. Use 'pearson' or 'spearman'.")
 
-    # Fisher z-transform for confidence interval
+    # Fisher z-transform for confidence interval (always two-sided)
     z = np.arctanh(r)
     se = 1 / np.sqrt(n - 3)
-    if alternative == "two-sided":
-        ci_lower = np.tanh(z - 1.96 * se)
-        ci_upper = np.tanh(z + 1.96 * se)
-    elif alternative == "less":
-        ci_lower = -1.0
-        ci_upper = np.tanh(z + 1.645 * se)
-    else:  # greater
-        ci_lower = np.tanh(z - 1.645 * se)
-        ci_upper = 1.0
+    ci_lower = np.tanh(z - 1.96 * se)
+    ci_upper = np.tanh(z + 1.96 * se)
 
     # Interpret strength
     abs_r = abs(r)
@@ -81,13 +74,9 @@ def correlation_test(
         p_str = f"p = {p_val:.3f}"
 
     method_name = "Pearson's r" if method == "pearson" else "Spearman's \u03c1"
-    if alternative == "two-sided":
-        ci_label = "95% CI"
-    else:
-        ci_label = "95% one-sided CI"
     interp = (
         f"{strength.title()} {direction} {sig}correlation between {x} and {y}, "
-        f"{method_name} = {r:.3f}, {p_str}, {ci_label} [{ci_lower:.3f}, {ci_upper:.3f}]. "
+        f"{method_name} = {r:.3f}, {p_str}, 95% CI [{ci_lower:.3f}, {ci_upper:.3f}]. "
         f"Correlation does not imply causation."
     )
 
