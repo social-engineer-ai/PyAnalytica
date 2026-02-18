@@ -1,5 +1,6 @@
 """Tests for pyanalytica.explore.simulate — distributions, CLT, LLN."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
@@ -11,6 +12,13 @@ from pyanalytica.explore.simulate import (
     simulate_distribution,
     simulate_lln,
 )
+
+
+@pytest.fixture(autouse=True)
+def _close_figures():
+    """Close all matplotlib figures after each test to avoid memory warnings."""
+    yield
+    plt.close("all")
 
 
 # ===== Distribution tests (10) =====
