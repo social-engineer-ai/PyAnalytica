@@ -40,17 +40,25 @@ def correlation_test(
         raise ValueError(f"Need at least 3 non-missing pairs, got {n}.")
 
     if method == "pearson":
-        r, p_val = stats.pearsonr(clean[x], clean[y], alternative=alternative)
+        res = stats.pearsonr(clean[x], clean[y], alternative=alternative)
+        r, p_val = res.statistic, res.pvalue
     elif method == "spearman":
-        r, p_val = stats.spearmanr(clean[x], clean[y], alternative=alternative)
+        res = stats.spearmanr(clean[x], clean[y], alternative=alternative)
+        r, p_val = res.statistic, res.pvalue
     else:
         raise ValueError(f"Unknown method: {method}. Use 'pearson' or 'spearman'.")
 
+    # Ensure scalar (same-column correlation returns arrays)
+    r = float(np.asarray(r).flat[0])
+    p_val = float(np.asarray(p_val).flat[0])
+
     # Fisher z-transform for confidence interval (always two-sided)
-    z = np.arctanh(r)
+    # Clamp r to avoid arctanh(±1) = ±inf
+    r_clamped = max(-0.9999, min(0.9999, r))
+    z = np.arctanh(r_clamped)
     se = 1 / np.sqrt(n - 3)
-    ci_lower = np.tanh(z - 1.96 * se)
-    ci_upper = np.tanh(z + 1.96 * se)
+    ci_lower = float(np.tanh(z - 1.96 * se))
+    ci_upper = float(np.tanh(z + 1.96 * se))
 
     # Interpret strength
     abs_r = abs(r)
