@@ -58,3 +58,11 @@ def test_pivot_no_columns_sum(df):
     result, _ = create_pivot_table(df, "dept", columns=None, values="count_col", aggfunc="sum", margins=False)
     assert result is not None
     assert len(result) == 2  # Eng, Sales
+
+
+def test_pivot_no_columns_same_index_and_values(df):
+    """When index and values are the same column, should not crash with duplicate column error."""
+    result, _ = create_pivot_table(df, "dept", columns=None, values="dept", aggfunc="count", margins=False)
+    assert result is not None
+    assert "dept" in result.columns
+    assert "dept_count" in result.columns

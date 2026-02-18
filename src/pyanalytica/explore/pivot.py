@@ -26,31 +26,32 @@ def create_pivot_table(
     if columns is None:
         # Simple groupby aggregation (no column variable)
         idx_list = [index] if isinstance(index, str) else index
-        result = df.groupby(idx_list, observed=True)[values].agg(aggfunc).reset_index()
-        result.columns = [*idx_list, values]
+        overlap = values in idx_list
+        val_col = f"{values}_{aggfunc}" if overlap else values
+        agg_series = df.groupby(idx_list, observed=True)[values].agg(aggfunc)
+        agg_series.name = val_col
+        result = agg_series.reset_index()
 
         if margins:
             total_row = {col: "Total" if col == idx_list[0] else "" for col in idx_list}
-            if aggfunc == "count":
-                total_row[values] = result[values].sum()
-            elif aggfunc == "sum":
-                total_row[values] = result[values].sum()
+            if aggfunc in ("count", "sum"):
+                total_row[val_col] = result[val_col].sum()
             elif aggfunc in ("mean", "median"):
-                total_row[values] = getattr(df[values], aggfunc)()
+                total_row[val_col] = getattr(df[values], aggfunc)()
             elif aggfunc == "min":
-                total_row[values] = result[values].min()
+                total_row[val_col] = result[val_col].min()
             elif aggfunc == "max":
-                total_row[values] = result[values].max()
+                total_row[val_col] = result[val_col].max()
             else:
-                total_row[values] = result[values].sum()
+                total_row[val_col] = result[val_col].sum()
             total_df = pd.DataFrame([total_row])
             result = pd.concat([result, total_df], ignore_index=True)
 
         if normalize and aggfunc == "count":
             data_rows = result.iloc[:-1] if margins else result
-            total = data_rows[values].sum()
+            total = data_rows[val_col].sum()
             if total > 0:
-                result[values] = (result[values].astype(float) / float(total) * 100).round(1)
+                result[val_col] = (result[val_col].astype(float) / float(total) * 100).round(1)
 
         code = (
             f"result = df.groupby({idx_str}, observed=True)"
