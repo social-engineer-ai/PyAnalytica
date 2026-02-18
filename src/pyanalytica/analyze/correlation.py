@@ -33,6 +33,9 @@ def correlation_test(
     method: 'pearson' or 'spearman'
     alternative: 'two-sided', 'less', or 'greater'
     """
+    if x == y:
+        raise ValueError(f"X and Y are the same variable ('{x}'). Correlation with itself is always 1.0 and has no meaning.")
+
     clean = df[[x, y]].dropna()
     n = len(clean)
 
