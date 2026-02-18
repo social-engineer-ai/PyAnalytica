@@ -6,7 +6,8 @@ from pyanalytica.analyze.means import (
 )
 from pyanalytica.analyze.normality import NormalityResult, shapiro_wilk_test
 from pyanalytica.analyze.proportions import (
-    GoodnessOfFitResult, chi_square_test, goodness_of_fit_test,
+    GoodnessOfFitResult, OnePropResult, TwoPropResult,
+    chi_square_test, goodness_of_fit_test, one_proportion_ztest, two_proportion_ztest,
 )
 
 __all__ = [
@@ -21,4 +22,8 @@ __all__ = [
     "chi_square_test",
     "goodness_of_fit_test",
     "GoodnessOfFitResult",
+    "one_proportion_ztest",
+    "two_proportion_ztest",
+    "OnePropResult",
+    "TwoPropResult",
 ]

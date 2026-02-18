@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from pyanalytica.analyze.proportions import (
-    GoodnessOfFitResult, ProportionsResult, chi_square_test, goodness_of_fit_test,
+    GoodnessOfFitResult, OnePropResult, ProportionsResult, TwoPropResult,
+    chi_square_test, goodness_of_fit_test, one_proportion_ztest, two_proportion_ztest,
 )
 
 
@@ -165,3 +166,139 @@ def test_gof_dof(gof_df):
     result = goodness_of_fit_test(gof_df, "color")
     n_categories = gof_df["color"].nunique()
     assert result.dof == n_categories - 1
+
+
+# --- One-sample proportion z-test ---
+
+@pytest.fixture
+def titanic_df():
+    return pd.DataFrame({
+        "Survived": [1] * 342 + [0] * 549,
+        "Sex": ["female"] * 233 + ["male"] * 109 + ["female"] * 81 + ["male"] * 468,
+        "Pclass": [1] * 200 + [2] * 200 + [3] * 491,
+    })
+
+
+def test_one_prop_returns_result(titanic_df):
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    assert isinstance(result, OnePropResult)
+    assert result.z_stat != 0
+    assert 0 <= result.p_value <= 1
+
+
+def test_one_prop_survival_rate(titanic_df):
+    """Survival rate ~38.4%, significantly different from 50%."""
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    assert result.sample_proportion == pytest.approx(342 / 891, abs=0.001)
+    assert result.p_value < 0.05
+
+
+def test_one_prop_not_significant():
+    """50/100 successes against p0=0.5 -> not significant."""
+    df = pd.DataFrame({"x": ["yes"] * 50 + ["no"] * 50})
+    result = one_proportion_ztest(df, "x", "yes", p0=0.5)
+    assert result.p_value >= 0.05
+
+
+def test_one_prop_confidence_interval(titanic_df):
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    lo, hi = result.confidence_interval
+    assert lo < result.sample_proportion < hi
+    assert lo > 0
+    assert hi < 1
+
+
+def test_one_prop_summary_table(titanic_df):
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    assert len(result.summary) == 6
+    assert "n" in result.summary["Statistic"].values
+
+
+def test_one_prop_interpretation(titanic_df):
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    assert "Survived" in result.interpretation
+    assert "1" in result.interpretation
+
+
+def test_one_prop_alternative_less():
+    """90/100 with p0=0.5, alt='less' -> not significant (proportion > 0.5)."""
+    df = pd.DataFrame({"x": ["yes"] * 90 + ["no"] * 10})
+    result = one_proportion_ztest(df, "x", "yes", p0=0.5, alternative="less")
+    assert result.p_value > 0.05
+
+
+def test_one_prop_alternative_greater():
+    """90/100 with p0=0.5, alt='greater' -> significant."""
+    df = pd.DataFrame({"x": ["yes"] * 90 + ["no"] * 10})
+    result = one_proportion_ztest(df, "x", "yes", p0=0.5, alternative="greater")
+    assert result.p_value < 0.05
+
+
+def test_one_prop_code_snippet(titanic_df):
+    result = one_proportion_ztest(titanic_df, "Survived", "1", p0=0.5)
+    assert "norm.sf" in result.code.code
+    assert "Survived" in result.code.code
+
+
+# --- Two-sample proportion z-test ---
+
+def test_two_prop_returns_result(titanic_df):
+    result = two_proportion_ztest(titanic_df, "Survived", "1", "Sex")
+    assert isinstance(result, TwoPropResult)
+    assert result.z_stat != 0
+    assert 0 <= result.p_value <= 1
+
+
+def test_two_prop_sex_survival(titanic_df):
+    """Female vs male survival should be significantly different."""
+    result = two_proportion_ztest(titanic_df, "Survived", "1", "Sex")
+    assert result.p_value < 0.05
+    assert "differs significantly" in result.interpretation
+
+
+def test_two_prop_no_difference():
+    """Equal proportions -> not significant."""
+    df = pd.DataFrame({
+        "outcome": ["yes"] * 50 + ["no"] * 50 + ["yes"] * 50 + ["no"] * 50,
+        "group": ["A"] * 100 + ["B"] * 100,
+    })
+    result = two_proportion_ztest(df, "outcome", "yes", "group")
+    assert result.p_value >= 0.05
+
+
+def test_two_prop_summary_shape(titanic_df):
+    result = two_proportion_ztest(titanic_df, "Survived", "1", "Sex")
+    assert len(result.summary) == 2
+    assert "Proportion" in result.summary.columns
+
+
+def test_two_prop_confidence_interval(titanic_df):
+    result = two_proportion_ztest(titanic_df, "Survived", "1", "Sex")
+    lo, hi = result.confidence_interval
+    assert lo < result.diff < hi
+
+
+def test_two_prop_code_snippet(titanic_df):
+    result = two_proportion_ztest(titanic_df, "Survived", "1", "Sex")
+    assert "p_pool" in result.code.code
+    assert "Sex" in result.code.code
+
+
+def test_two_prop_requires_two_groups():
+    """Should raise ValueError if group_var has != 2 unique values."""
+    df = pd.DataFrame({
+        "outcome": ["yes", "no"] * 15,
+        "group": ["A"] * 10 + ["B"] * 10 + ["C"] * 10,
+    })
+    with pytest.raises(ValueError, match="exactly 2"):
+        two_proportion_ztest(df, "outcome", "yes", "group")
+
+
+def test_two_prop_alternative_less():
+    """Group A has 90% success, Group B has 10%. A < B should not be significant."""
+    df = pd.DataFrame({
+        "outcome": ["yes"] * 90 + ["no"] * 10 + ["yes"] * 10 + ["no"] * 90,
+        "group": ["A"] * 100 + ["B"] * 100,
+    })
+    result = two_proportion_ztest(df, "outcome", "yes", "group", alternative="less")
+    assert result.p_value > 0.05  # A's proportion is HIGHER, not less

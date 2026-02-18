@@ -1,4 +1,4 @@
-"""Analyze > Proportions module — chi-square tests."""
+"""Analyze > Proportions module — proportion z-tests and chi-square tests."""
 
 from __future__ import annotations
 
@@ -7,7 +7,9 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns
-from pyanalytica.analyze.proportions import chi_square_test, goodness_of_fit_test
+from pyanalytica.analyze.proportions import (
+    chi_square_test, goodness_of_fit_test, one_proportion_ztest, two_proportion_ztest,
+)
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
@@ -18,10 +20,16 @@ def proportions_ui():
     return ui.layout_sidebar(
         ui.sidebar(
             ui.input_select("test_type", "Test", choices={
+                "one_prop": "One-Sample Proportion",
+                "two_prop": "Two-Sample Proportion",
                 "independence": "Test of Independence",
                 "goodness_of_fit": "Goodness of Fit",
             }),
             ui.output_ui("test_controls"),
+            ui.input_select("alternative", "Alternative",
+                            choices={"two-sided": "Two-sided",
+                                     "less": "Less than",
+                                     "greater": "Greater than"}),
             ui.input_action_button("run_btn", "Run Test", class_="btn-primary w-100 mt-2"),
             width=300,
         ),
@@ -36,8 +44,7 @@ def proportions_ui():
 @module.server
 def proportions_server(input, output, session, state: WorkbenchState, get_current_df):
     last_code = reactive.value("")
-    indep_result = reactive.value(None)
-    gof_result = reactive.value(None)
+    last_result = reactive.value(None)
     last_test_type = reactive.value(None)
     get_dec = decimals_server("dec")
 
@@ -50,6 +57,9 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
             ui.update_select("row_var", choices=choices)
             ui.update_select("col_var", choices=choices)
             ui.update_select("gof_var", choices=choices)
+            ui.update_select("op_var", choices=choices)
+            ui.update_select("tp_var", choices=choices)
+            ui.update_select("tp_group", choices=choices)
 
     @render.ui
     def test_controls():
@@ -60,17 +70,47 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
             cats = get_categorical_columns(df)
             if not cats:
                 cats = list(df.columns)
-        if tt == "independence":
+
+        if tt == "one_prop":
+            return ui.div(
+                ui.input_select("op_var", "Variable", choices=cats),
+                ui.output_ui("op_success_choices"),
+                ui.input_numeric("op_p0", "Hypothesized Proportion (p0)", value=0.5,
+                                 min=0.001, max=0.999, step=0.05),
+            )
+        elif tt == "two_prop":
+            return ui.div(
+                ui.input_select("tp_var", "Outcome Variable", choices=cats),
+                ui.output_ui("tp_success_choices"),
+                ui.input_select("tp_group", "Grouping Variable", choices=cats),
+            )
+        elif tt == "independence":
             return ui.div(
                 ui.input_select("row_var", "Row Variable", choices=cats),
                 ui.input_select("col_var", "Column Variable", choices=cats),
             )
-        else:
+        else:  # goodness_of_fit
             return ui.div(
                 ui.input_select("gof_var", "Variable", choices=cats),
                 ui.input_text("expected_probs", "Expected Proportions (optional)",
                               placeholder="A:0.25, B:0.50, C:0.25"),
             )
+
+    @render.ui
+    def op_success_choices():
+        df = get_current_df()
+        var = input.op_var()
+        req(df is not None, var)
+        vals = sorted(df[var].dropna().astype(str).unique().tolist())
+        return ui.input_select("op_success", "Success Value", choices=vals)
+
+    @render.ui
+    def tp_success_choices():
+        df = get_current_df()
+        var = input.tp_var()
+        req(df is not None, var)
+        vals = sorted(df[var].dropna().astype(str).unique().tolist())
+        return ui.input_select("tp_success", "Success Value", choices=vals)
 
     @reactive.effect
     @reactive.event(input.run_btn)
@@ -80,15 +120,43 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
         tt = input.test_type()
 
         try:
-            if tt == "independence":
+            if tt == "one_prop":
+                var = input.op_var()
+                success = input.op_success()
+                p0 = input.op_p0()
+                alt = input.alternative()
+                req(var, success)
+                r = one_proportion_ztest(df, var, success, p0=p0, alternative=alt)
+                last_result.set(r)
+                last_test_type.set("one_prop")
+                state.codegen.record(r.code, action="analyze",
+                                     description="One-sample proportion z-test")
+                last_code.set(r.code.code)
+
+            elif tt == "two_prop":
+                var = input.tp_var()
+                success = input.tp_success()
+                group = input.tp_group()
+                alt = input.alternative()
+                req(var, success, group)
+                r = two_proportion_ztest(df, var, success, group, alternative=alt)
+                last_result.set(r)
+                last_test_type.set("two_prop")
+                state.codegen.record(r.code, action="analyze",
+                                     description="Two-sample proportion z-test")
+                last_code.set(r.code.code)
+
+            elif tt == "independence":
                 row, col = input.row_var(), input.col_var()
                 req(row, col)
                 r = chi_square_test(df, row, col)
-                indep_result.set(r)
+                last_result.set(r)
                 last_test_type.set("independence")
-                state.codegen.record(r.code, action="analyze", description="Chi-square test of independence")
+                state.codegen.record(r.code, action="analyze",
+                                     description="Chi-square test of independence")
                 last_code.set(r.code.code)
-            else:
+
+            else:  # goodness_of_fit
                 var = input.gof_var()
                 req(var)
                 probs_str = input.expected_probs().strip()
@@ -99,75 +167,90 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
                         k, v = pair.strip().split(":")
                         expected[k.strip()] = float(v.strip())
                 r = goodness_of_fit_test(df, var, expected)
-                gof_result.set(r)
+                last_result.set(r)
                 last_test_type.set("goodness_of_fit")
-                state.codegen.record(r.code, action="analyze", description="Chi-square goodness-of-fit test")
+                state.codegen.record(r.code, action="analyze",
+                                     description="Chi-square goodness-of-fit test")
                 last_code.set(r.code.code)
+
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
 
     @render.ui
     def test_result():
         tt = last_test_type()
-        req(tt is not None)
-        if tt == "independence":
-            r = indep_result()
-        else:
-            r = gof_result()
-        req(r is not None)
+        r = last_result()
+        req(tt is not None, r is not None)
         sig_class = "alert-success" if r.p_value < 0.05 else "alert-warning"
         return ui.div(ui.p(r.interpretation), class_=f"alert {sig_class}")
 
     @render.ui
     def result_tables():
         tt = last_test_type()
-        req(tt is not None)
-        if tt == "independence":
-            r = indep_result()
-            req(r is not None)
-            dec = get_dec()
-            obs_grid = ui.output_data_frame("observed")
-            exp_grid = ui.output_data_frame("expected")
+        r = last_result()
+        req(tt is not None, r is not None)
+
+        if tt == "one_prop":
+            return ui.div(
+                ui.h5("Test Summary"),
+                ui.output_data_frame("summary_table"),
+            )
+        elif tt == "two_prop":
+            return ui.div(
+                ui.h5("Group Proportions"),
+                ui.output_data_frame("summary_table"),
+            )
+        elif tt == "independence":
             return ui.div(
                 ui.h5("Observed"),
-                obs_grid,
+                ui.output_data_frame("observed"),
                 ui.h5("Expected"),
-                exp_grid,
+                ui.output_data_frame("expected"),
             )
-        else:
-            r = gof_result()
-            req(r is not None)
+        else:  # goodness_of_fit
             return ui.div(
                 ui.h5("Goodness-of-Fit Results"),
                 ui.output_data_frame("gof_table"),
             )
 
     @render.data_frame
-    def observed():
-        r = indep_result()
+    def summary_table():
+        r = last_result()
         req(r is not None)
+        return render.DataGrid(round_df(r.summary, get_dec()))
+
+    @render.data_frame
+    def observed():
+        r = last_result()
+        tt = last_test_type()
+        req(r is not None, tt == "independence")
         return render.DataGrid(round_df(r.observed.reset_index(), get_dec()))
 
     @render.data_frame
     def expected():
-        r = indep_result()
-        req(r is not None)
+        r = last_result()
+        tt = last_test_type()
+        req(r is not None, tt == "independence")
         return render.DataGrid(round_df(r.expected.reset_index(), get_dec()))
 
     @render.data_frame
     def gof_table():
-        r = gof_result()
-        req(r is not None)
+        r = last_result()
+        tt = last_test_type()
+        req(r is not None, tt == "goodness_of_fit")
         return render.DataGrid(round_df(r.table, get_dec()))
 
     def _get_dl_df():
         tt = last_test_type()
-        if tt == "independence":
-            r = indep_result()
-            return r.observed.reset_index() if r else None
+        r = last_result()
+        if r is None:
+            return None
+        if tt in ("one_prop", "two_prop"):
+            return r.summary
+        elif tt == "independence":
+            return r.observed.reset_index()
         else:
-            r = gof_result()
-            return r.table if r else None
+            return r.table
 
     download_result_server("dl", get_df=_get_dl_df, filename="proportions")
     code_panel_server("code", get_code=last_code)

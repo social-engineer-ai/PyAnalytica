@@ -1,4 +1,4 @@
-"""Chi-square tests for proportions (independence and goodness of fit)."""
+"""Proportion tests — z-tests, chi-square independence, and goodness of fit."""
 
 from __future__ import annotations
 
@@ -34,6 +34,230 @@ class GoodnessOfFitResult:
     table: pd.DataFrame          # Columns: Category, Observed, Expected, Residual
     interpretation: str
     code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+
+
+@dataclass
+class OnePropResult:
+    """Result of a one-sample proportion z-test."""
+    test_name: str
+    z_stat: float
+    p_value: float
+    sample_proportion: float
+    hypothesized_proportion: float
+    n: int
+    successes: int
+    confidence_interval: tuple[float, float]
+    summary: pd.DataFrame
+    interpretation: str
+    code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+
+
+@dataclass
+class TwoPropResult:
+    """Result of a two-sample proportion z-test."""
+    test_name: str
+    z_stat: float
+    p_value: float
+    prop1: float
+    prop2: float
+    diff: float
+    confidence_interval: tuple[float, float]
+    summary: pd.DataFrame
+    interpretation: str
+    code: CodeSnippet = field(default_factory=lambda: CodeSnippet(code=""))
+
+
+def one_proportion_ztest(
+    df: pd.DataFrame,
+    variable: str,
+    success_value: str,
+    p0: float = 0.5,
+    alternative: str = "two-sided",
+) -> OnePropResult:
+    """One-sample proportion z-test: compare observed proportion to a hypothesized value.
+
+    Parameters
+    ----------
+    df : DataFrame
+    variable : str
+        Column name (categorical).
+    success_value : str
+        Which category counts as "success".
+    p0 : float
+        Hypothesized proportion (default 0.5).
+    alternative : str
+        'two-sided', 'less', or 'greater'.
+    """
+    data = df[variable].dropna()
+    n = len(data)
+    successes = int((data.astype(str) == str(success_value)).sum())
+    p_hat = successes / n
+
+    # z-test using normal approximation
+    se0 = np.sqrt(p0 * (1 - p0) / n)
+    z = (p_hat - p0) / se0
+
+    if alternative == "two-sided":
+        p_val = 2 * stats.norm.sf(abs(z))
+    elif alternative == "less":
+        p_val = stats.norm.cdf(z)
+    else:  # greater
+        p_val = stats.norm.sf(z)
+
+    # Confidence interval (Wald, always two-sided)
+    se_hat = np.sqrt(p_hat * (1 - p_hat) / n)
+    ci = (p_hat - 1.96 * se_hat, p_hat + 1.96 * se_hat)
+
+    summary = pd.DataFrame({
+        "Statistic": ["n", "Successes", "Sample Proportion", "Hypothesized p0", "z", "p-value"],
+        "Value": [n, successes, round(p_hat, 4), p0, round(z, 4), round(p_val, 6)],
+    })
+
+    p_str = "p < .001" if p_val < 0.001 else f"p = {p_val:.3f}"
+    alt_desc = {"two-sided": "not equal to", "less": "less than", "greater": "greater than"}
+    if p_val < 0.05:
+        interp = (
+            f"The proportion of {success_value} in {variable} ({p_hat:.3f}) is "
+            f"significantly {alt_desc[alternative]} {p0}, z = {z:.2f}, {p_str}."
+        )
+    else:
+        interp = (
+            f"The proportion of {success_value} in {variable} ({p_hat:.3f}) is not "
+            f"significantly {alt_desc[alternative]} {p0}, z = {z:.2f}, {p_str}."
+        )
+    interp += f" 95% CI: ({ci[0]:.3f}, {ci[1]:.3f})."
+
+    code = (
+        f'from scipy import stats\n'
+        f'import numpy as np\n'
+        f'data = df["{variable}"].dropna()\n'
+        f'n = len(data)\n'
+        f'successes = (data.astype(str) == "{success_value}").sum()\n'
+        f'p_hat = successes / n\n'
+        f'p0 = {p0}\n'
+        f'se = np.sqrt(p0 * (1 - p0) / n)\n'
+        f'z = (p_hat - p0) / se\n'
+        f'p_val = 2 * stats.norm.sf(abs(z))  # two-sided\n'
+        f'print(f"z = {{z:.4f}}, p = {{p_val:.4f}}, p_hat = {{p_hat:.4f}}")'
+    )
+
+    return OnePropResult(
+        test_name="One-Sample Proportion z-Test",
+        z_stat=round(float(z), 4),
+        p_value=round(float(p_val), 6),
+        sample_proportion=round(float(p_hat), 4),
+        hypothesized_proportion=p0,
+        n=n,
+        successes=successes,
+        confidence_interval=(round(ci[0], 4), round(ci[1], 4)),
+        summary=summary,
+        interpretation=interp,
+        code=CodeSnippet(code=code, imports=["import numpy as np", "from scipy import stats"]),
+    )
+
+
+def two_proportion_ztest(
+    df: pd.DataFrame,
+    variable: str,
+    success_value: str,
+    group_var: str,
+    alternative: str = "two-sided",
+) -> TwoPropResult:
+    """Two-sample proportion z-test: compare proportions across two groups.
+
+    Parameters
+    ----------
+    df : DataFrame
+    variable : str
+        Column containing the binary outcome.
+    success_value : str
+        Which category counts as "success".
+    group_var : str
+        Column defining the two groups (must have exactly 2 unique values).
+    alternative : str
+        'two-sided', 'less', or 'greater'.
+    """
+    data = df[[variable, group_var]].dropna()
+    groups = sorted(data[group_var].unique())
+    if len(groups) != 2:
+        msg = f"group_var '{group_var}' must have exactly 2 unique values, got {len(groups)}"
+        raise ValueError(msg)
+
+    g1 = data[data[group_var] == groups[0]][variable].astype(str)
+    g2 = data[data[group_var] == groups[1]][variable].astype(str)
+
+    n1, n2 = len(g1), len(g2)
+    x1 = int((g1 == str(success_value)).sum())
+    x2 = int((g2 == str(success_value)).sum())
+    p1 = x1 / n1
+    p2 = x2 / n2
+    diff = p1 - p2
+
+    # Pooled proportion under H0
+    p_pool = (x1 + x2) / (n1 + n2)
+    se = np.sqrt(p_pool * (1 - p_pool) * (1 / n1 + 1 / n2))
+
+    z = diff / se if se > 0 else 0.0
+
+    if alternative == "two-sided":
+        p_val = 2 * stats.norm.sf(abs(z))
+    elif alternative == "less":
+        p_val = stats.norm.cdf(z)
+    else:
+        p_val = stats.norm.sf(z)
+
+    # CI for difference (unpooled)
+    se_diff = np.sqrt(p1 * (1 - p1) / n1 + p2 * (1 - p2) / n2)
+    ci = (diff - 1.96 * se_diff, diff + 1.96 * se_diff)
+
+    summary = pd.DataFrame({
+        "Group": [str(groups[0]), str(groups[1])],
+        "n": [n1, n2],
+        "Successes": [x1, x2],
+        "Proportion": [round(p1, 4), round(p2, 4)],
+    })
+
+    p_str = "p < .001" if p_val < 0.001 else f"p = {p_val:.3f}"
+    g1_label, g2_label = str(groups[0]), str(groups[1])
+    if p_val < 0.05:
+        interp = (
+            f"The proportion of {success_value} differs significantly between "
+            f"{g1_label} ({p1:.3f}) and {g2_label} ({p2:.3f}), z = {z:.2f}, {p_str}."
+        )
+    else:
+        interp = (
+            f"The proportion of {success_value} does not differ significantly between "
+            f"{g1_label} ({p1:.3f}) and {g2_label} ({p2:.3f}), z = {z:.2f}, {p_str}."
+        )
+    interp += f" Difference: {diff:.3f}, 95% CI: ({ci[0]:.3f}, {ci[1]:.3f})."
+
+    code = (
+        f'from scipy import stats\n'
+        f'import numpy as np\n'
+        f'data = df[["{variable}", "{group_var}"]].dropna()\n'
+        f'g1 = data[data["{group_var}"] == "{groups[0]}"]["{variable}"].astype(str)\n'
+        f'g2 = data[data["{group_var}"] == "{groups[1]}"]["{variable}"].astype(str)\n'
+        f'x1, n1 = (g1 == "{success_value}").sum(), len(g1)\n'
+        f'x2, n2 = (g2 == "{success_value}").sum(), len(g2)\n'
+        f'p_pool = (x1 + x2) / (n1 + n2)\n'
+        f'se = np.sqrt(p_pool * (1 - p_pool) * (1/n1 + 1/n2))\n'
+        f'z = (x1/n1 - x2/n2) / se\n'
+        f'p_val = 2 * stats.norm.sf(abs(z))  # two-sided\n'
+        f'print(f"z = {{z:.4f}}, p = {{p_val:.4f}}, p1 = {{x1/n1:.4f}}, p2 = {{x2/n2:.4f}}")'
+    )
+
+    return TwoPropResult(
+        test_name="Two-Sample Proportion z-Test",
+        z_stat=round(float(z), 4),
+        p_value=round(float(p_val), 6),
+        prop1=round(float(p1), 4),
+        prop2=round(float(p2), 4),
+        diff=round(float(diff), 4),
+        confidence_interval=(round(ci[0], 4), round(ci[1], 4)),
+        summary=summary,
+        interpretation=interp,
+        code=CodeSnippet(code=code, imports=["import numpy as np", "from scipy import stats"]),
+    )
 
 
 def goodness_of_fit_test(
