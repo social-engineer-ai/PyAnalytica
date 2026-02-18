@@ -46,7 +46,8 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
             all_cols = list(df.columns)
             choices = cat_cols if cat_cols else all_cols
             ui.update_select("row_var", choices=choices)
-            ui.update_select("col_var", choices=choices)
+            col_choices = {"": "(None)", **{c: c for c in choices}}
+            ui.update_select("col_var", choices=col_choices)
 
     @reactive.calc
     @reactive.event(input.run_btn)
@@ -55,10 +56,10 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
         req(df is not None)
         row = input.row_var()
         col = input.col_var()
-        req(row, col)
+        req(row)
 
         normalize = input.normalize() or None
-        ct_result = create_crosstab(df, row, col, normalize=normalize, margins=input.margins())
+        ct_result = create_crosstab(df, row, col_var=col or None, normalize=normalize, margins=input.margins())
         state.codegen.record(ct_result.code, action="explore", description="Cross-tabulation")
         last_code.set(ct_result.code.code)
         return ct_result
@@ -67,6 +68,12 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
     def chi2_result():
         r = result()
         req(r is not None)
+        if r.chi2 is None:
+            return ui.div(
+                ui.h5("Frequency Table"),
+                ui.p(r.interpretation),
+                class_="alert alert-info",
+            )
         return ui.div(
             ui.h5("Chi-Square Test"),
             ui.p(r.interpretation),

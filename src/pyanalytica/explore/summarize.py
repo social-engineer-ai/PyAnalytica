@@ -17,7 +17,17 @@ def group_summarize(
     """Summarize data by groups with specified aggregation functions.
 
     agg_funcs: list of 'count', 'sum', 'mean', 'median', 'min', 'max', 'std', 'nunique'
+    When value_cols is empty, produces a simple count per group.
     """
+    if not value_cols:
+        result = df.groupby(group_cols, observed=True).size().reset_index(name="count")
+        code = f"result = df.groupby({group_cols!r}, observed=True).size().reset_index(name=\"count\")"
+        if pct_of_total:
+            total = result["count"].sum()
+            if total > 0:
+                result["count_pct"] = (result["count"] / total * 100).round(1)
+        return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
     agg_dict = {col: agg_funcs for col in value_cols}
     result = df.groupby(group_cols, observed=True).agg(agg_dict)
 

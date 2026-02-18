@@ -117,6 +117,17 @@ def convert_dtype(
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
+# --- Rename column ---
+
+def rename_column(
+    df: pd.DataFrame, old_name: str, new_name: str
+) -> tuple[pd.DataFrame, CodeSnippet]:
+    """Rename a single column."""
+    result = df.rename(columns={old_name: new_name})
+    code = f'df = df.rename(columns={{"{old_name}": "{new_name}"}})'
+    return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+
 # --- Drop columns ---
 
 def drop_columns(

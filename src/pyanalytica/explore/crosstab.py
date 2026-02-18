@@ -14,10 +14,10 @@ from pyanalytica.core.codegen import CodeSnippet
 class CrosstabResult:
     """Result of a cross-tabulation with chi-square test."""
     table: pd.DataFrame
-    chi2: float
-    p_value: float
-    dof: int
-    expected: pd.DataFrame
+    chi2: float | None
+    p_value: float | None
+    dof: int | None
+    expected: pd.DataFrame | None
     interpretation: str
     code: CodeSnippet
 
@@ -25,14 +25,47 @@ class CrosstabResult:
 def create_crosstab(
     df: pd.DataFrame,
     row_var: str,
-    col_var: str,
+    col_var: str | None = None,
     normalize: str | None = None,
     margins: bool = True,
 ) -> CrosstabResult:
     """Create a cross-tabulation with chi-square test of independence.
 
     normalize: None, 'index' (row %), 'columns' (col %), 'all' (total %)
+    When col_var is None, produces a simple frequency table.
     """
+    if col_var is None:
+        # Simple frequency table
+        if normalize:
+            counts = df[row_var].value_counts(normalize=True).sort_index()
+            table = counts.to_frame(name="Percent")
+            table["Percent"] = (table["Percent"] * 100).round(1)
+            code = f'result = df["{row_var}"].value_counts(normalize=True).sort_index() * 100'
+        else:
+            counts = df[row_var].value_counts().sort_index()
+            table = counts.to_frame(name="Count")
+            code = f'result = df["{row_var}"].value_counts().sort_index()'
+
+        if margins:
+            col_name = table.columns[0]
+            total = table[col_name].sum()
+            total_row = pd.DataFrame({col_name: [total]}, index=["Total"])
+            table = pd.concat([table, total_row])
+
+        n_cats = df[row_var].nunique()
+        interpretation = f"Frequency table for {row_var} ({n_cats} categories)"
+
+        return CrosstabResult(
+            table=table,
+            chi2=None,
+            p_value=None,
+            dof=None,
+            expected=None,
+            interpretation=interpretation,
+            code=CodeSnippet(code=code, imports=["import pandas as pd"]),
+        )
+
+    # Two-variable cross-tabulation
     # Raw counts (without margins for chi-square)
     ct_raw = pd.crosstab(df[row_var], df[col_var])
 

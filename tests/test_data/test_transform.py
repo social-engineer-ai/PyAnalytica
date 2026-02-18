@@ -14,6 +14,7 @@ from pyanalytica.data.transform import (
     dummy_encode,
     fill_missing,
     ordinal_encode,
+    rename_column,
     str_lower,
     str_strip,
     str_upper,
@@ -98,6 +99,26 @@ def test_str_upper(df):
 def test_str_strip(df):
     result, _ = str_strip(df, "b")
     assert result.loc[0, "b"] == "Hello"
+
+
+# --- Rename column tests ---
+
+def test_rename_column_basic(df):
+    result, snippet = rename_column(df, "a", "alpha")
+    assert "alpha" in result.columns
+    assert "a" not in result.columns
+    assert "rename" in snippet.code
+
+
+def test_rename_column_preserves_data(df):
+    result, _ = rename_column(df, "c", "count")
+    assert list(result["count"]) == [10, 20, 10, 20]
+
+
+def test_rename_column_code_snippet(df):
+    _, snippet = rename_column(df, "b", "label")
+    assert '"b"' in snippet.code
+    assert '"label"' in snippet.code
 
 
 # --- Encoding tests ---

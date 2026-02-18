@@ -10,7 +10,7 @@ from pyanalytica.core.codegen import CodeSnippet
 def create_pivot_table(
     df: pd.DataFrame,
     index: str | list[str],
-    columns: str,
+    columns: str | None,
     values: str,
     aggfunc: str = "count",
     margins: bool = True,
@@ -19,7 +19,49 @@ def create_pivot_table(
     """Create a pivot table.
 
     normalize: None, 'index' (row %), 'columns' (col %), 'all' (total %)
+    When columns is None, produces a simple groupby aggregation.
     """
+    idx_str = f'"{index}"' if isinstance(index, str) else repr(index)
+
+    if columns is None:
+        # Simple groupby aggregation (no column variable)
+        idx_list = [index] if isinstance(index, str) else index
+        result = df.groupby(idx_list, observed=True)[values].agg(aggfunc).reset_index()
+        result.columns = [*idx_list, values]
+
+        if margins:
+            total_row = {col: "Total" if col == idx_list[0] else "" for col in idx_list}
+            if aggfunc == "count":
+                total_row[values] = result[values].sum()
+            elif aggfunc == "sum":
+                total_row[values] = result[values].sum()
+            elif aggfunc in ("mean", "median"):
+                total_row[values] = getattr(df[values], aggfunc)()
+            elif aggfunc == "min":
+                total_row[values] = result[values].min()
+            elif aggfunc == "max":
+                total_row[values] = result[values].max()
+            else:
+                total_row[values] = result[values].sum()
+            total_df = pd.DataFrame([total_row])
+            result = pd.concat([result, total_df], ignore_index=True)
+
+        if normalize and aggfunc == "count":
+            data_rows = result.iloc[:-1] if margins else result
+            total = data_rows[values].sum()
+            if total > 0:
+                result[values] = (result[values].astype(float) / float(total) * 100).round(1)
+
+        code = (
+            f"result = df.groupby({idx_str}, observed=True)"
+            f'["{values}"].agg("{aggfunc}").reset_index()'
+        )
+        if normalize:
+            code += f'\nresult["{values}"] = result["{values}"] / result["{values}"].sum() * 100'
+
+        return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+    # Two-variable pivot table
     result = pd.pivot_table(
         df,
         index=index,
@@ -45,7 +87,6 @@ def create_pivot_table(
         result = result.round(1)
 
     # Generate code
-    idx_str = f'"{index}"' if isinstance(index, str) else repr(index)
     margins_str = f", margins={margins}" if margins else ""
     code = (
         f"result = pd.pivot_table(\n"

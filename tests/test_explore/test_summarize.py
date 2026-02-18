@@ -36,3 +36,19 @@ def test_pct_of_total(df):
 def test_code_generation(df):
     _, snippet = group_summarize(df, ["dept"], ["salary"], ["mean"])
     assert "groupby" in snippet.code
+
+
+# --- Tests for empty value_cols (count-only mode) ---
+
+def test_summarize_no_value_cols(df):
+    result, snippet = group_summarize(df, ["dept"], [], ["mean"])
+    assert "count" in result.columns
+    assert len(result) == 2
+    assert result["count"].sum() == len(df)
+    assert "size()" in snippet.code
+
+
+def test_summarize_no_value_cols_pct(df):
+    result, _ = group_summarize(df, ["dept"], [], ["count"], pct_of_total=True)
+    assert "count_pct" in result.columns
+    assert abs(result["count_pct"].sum() - 100) < 0.1

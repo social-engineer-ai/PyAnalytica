@@ -22,6 +22,7 @@ def transform_ui():
             ui.input_select("action", "Transform Action", choices={
                 "fill_missing": "Fill Missing Values",
                 "drop_missing": "Drop Missing Rows",
+                "rename_column": "Rename Column",
                 "drop_columns": "Drop Column(s)",
                 "convert_dtype": "Convert Data Type",
                 "drop_duplicates": "Drop Duplicates",
@@ -83,7 +84,9 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         else:
             controls = [ui.input_select("col", "Column", choices=col_choices)]
 
-        if action == "fill_missing":
+        if action == "rename_column":
+            controls.append(ui.input_text("new_col_name", "New Column Name"))
+        elif action == "fill_missing":
             controls.append(ui.input_select("fill_method", "Method",
                 choices=["mean", "median", "mode", "ffill", "bfill", "value"]))
             controls.append(ui.input_text("fill_value", "Value (if method=value)"))
@@ -113,7 +116,11 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         col = input.col()
         req(col)
 
-        if action == "fill_missing":
+        if action == "rename_column":
+            new_name = input.new_col_name()
+            req(new_name and new_name.strip())
+            return transform.rename_column(df, col, new_name.strip())
+        elif action == "fill_missing":
             method = input.fill_method()
             val = input.fill_value() if method == "value" else None
             return transform.fill_missing(df, col, method, val)

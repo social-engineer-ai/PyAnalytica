@@ -45,7 +45,8 @@ def pivot_server(input, output, session, state: WorkbenchState, get_current_df):
         if df is not None:
             cols = list(df.columns)
             ui.update_select("index", choices=cols)
-            ui.update_select("columns", choices=cols)
+            col_choices = {"": "(None)", **{c: c for c in cols}}
+            ui.update_select("columns", choices=col_choices)
             ui.update_select("values", choices=cols)
 
     @reactive.calc
@@ -56,11 +57,11 @@ def pivot_server(input, output, session, state: WorkbenchState, get_current_df):
         idx = input.index()
         cols = input.columns()
         vals = input.values()
-        req(idx, cols, vals)
+        req(idx, vals)
 
         normalize = input.normalize() or None
         result_df, snippet = create_pivot_table(
-            df, idx, cols, vals,
+            df, idx, cols or None, vals,
             aggfunc=input.aggfunc(),
             margins=input.margins(),
             normalize=normalize,

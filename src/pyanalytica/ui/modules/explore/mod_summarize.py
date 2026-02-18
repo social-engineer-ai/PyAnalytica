@@ -55,9 +55,11 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
         group_cols = list(input.group_cols())
         value_cols = list(input.value_cols())
         agg_funcs = list(input.agg_funcs())
-        req(group_cols, value_cols, agg_funcs)
+        req(group_cols)
 
-        result_df, snippet = group_summarize(df, group_cols, value_cols, agg_funcs, input.pct_total())
+        result_df, snippet = group_summarize(
+            df, group_cols, value_cols, agg_funcs if value_cols else ["count"], input.pct_total()
+        )
         state.codegen.record(snippet, action="explore", description="Group summary")
         last_code.set(snippet.code)
         return result_df
