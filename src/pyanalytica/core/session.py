@@ -74,10 +74,13 @@ def load_session(state: WorkbenchState, name: str = "autosave") -> list[str]:
                 "The file may have been tampered with."
             )
     else:
-        raise ValueError(
-            f"Session file '{name}' has no signature file. "
-            "Cannot verify integrity. Delete and re-save the session."
+        # Legacy session without signature — delete and skip
+        import logging
+        logging.getLogger(__name__).warning(
+            "Session '%s' has no signature; deleting stale file.", name,
         )
+        path.unlink(missing_ok=True)
+        return []
     payload = pickle.load(path.open("rb"))  # noqa: S301
     datasets = payload.get("datasets", {})
     history = payload.get("history", [])

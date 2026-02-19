@@ -171,8 +171,12 @@ def create_app(config: CourseConfig | None = None) -> App:
 
         # Restore autosaved session on startup
         if "autosave" in list_sessions():
-            load_session(state, "autosave")
-            state._notify()
+            try:
+                load_session(state, "autosave")
+            except Exception:
+                pass  # stale or corrupt autosave — start fresh
+            else:
+                state._notify()
 
         # Dataset selector
         selected_dataset = dataset_selector_server("ds", state=state)

@@ -153,3 +153,22 @@ class TestAutosave:
         path = save_session(state)
         assert path.stem == "autosave"
         assert "autosave" in list_sessions()
+
+
+class TestLegacySessionWithoutSignature:
+    def test_load_without_sig_deletes_and_returns_empty(self, tmp_path):
+        """A .pkl without .sig (pre-signature era) should be silently deleted."""
+        import pickle
+        state = _make_state_with_data()
+        # Write a pkl file directly without a .sig companion
+        pkl_path = tmp_path / "legacy.pkl"
+        payload = {"datasets": dict(state.datasets), "history": [], "model_store": {}}
+        pkl_path.write_bytes(pickle.dumps(payload))
+        assert pkl_path.exists()
+
+        state2 = WorkbenchState()
+        result = load_session(state2, "legacy")
+        assert result == []
+        assert state2.datasets == {}
+        # The stale pkl should have been deleted
+        assert not pkl_path.exists()
