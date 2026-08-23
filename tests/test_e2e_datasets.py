@@ -182,3 +182,40 @@ class TestErrorTextIsNotOutput:
             _nav_to(page, "Visualize", tab)
             _wait_stable(page, 1500)
             _assert_no_error_text(page, "body")
+
+
+class TestDateParsingOnUpload:
+    """A CSV date column must become a date, so Timeline has an axis to use."""
+
+    def test_uploaded_dates_are_recognised_and_timeline_works(self, page):
+        import os
+
+        csv = os.path.abspath("examples/tester_files/sales.csv")
+        _nav_to(page, "Data", "Load")
+        _wait_stable(page, 1500)
+
+        # Switch the source to file upload. Note this is a radio group, not a
+        # select -- _select_option's fallback sets .value on a <div> and does
+        # nothing, which is why this clicks the radio directly.
+        radio = page.locator(f"{_sid('load', 'source')} input[type=radio][value='upload']")
+        if radio.count():
+            radio.first.check()
+            _wait_stable(page, 1200)
+            # The id is on the <input> itself, not a wrapper. Note also that
+            # every module's file input exists in the DOM at once, so a bare
+            # input[type=file] selector picks a hidden one from another tab.
+            page.locator(_sid("load", "file_upload")).set_input_files(csv)
+            _wait_stable(page, 2000)
+            _click_button(page, _sid("load", "load_btn"))
+            _wait_stable(page, 4000)
+
+            _nav_to(page, "Visualize", "Timeline")
+            _wait_stable(page, 2500)
+            options = [
+                o.strip()
+                for o in page.locator(f"{_sid('timeline', 'date_col')} option").all_inner_texts()
+            ]
+            assert "date" in options, (
+                f"Timeline was offered no date column after uploading a CSV "
+                f"with dates. Offered: {options}"
+            )

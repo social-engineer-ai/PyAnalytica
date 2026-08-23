@@ -8,6 +8,27 @@ from typing import Any
 import pandas as pd
 
 from pyanalytica.core.codegen import CodeSnippet
+from pyanalytica.data.dates import parse_date_columns
+
+
+
+
+def _apply_date_parsing(
+    df: pd.DataFrame, code: str
+) -> tuple[pd.DataFrame, CodeSnippet, list[str]]:
+    """Convert date-like text columns and fold the conversion into the code.
+
+    A CSV has no types, so a date column arrives as text and Timeline has no
+    date axis to offer. Only columns whose values are actually shaped like
+    dates are touched -- see :mod:`pyanalytica.data.dates` for why this is
+    deliberately narrow.
+    """
+    parsed, converted, date_snippet = parse_date_columns(df)
+    if not converted:
+        return df, CodeSnippet(code=code, imports=["import pandas as pd"]), []
+
+    combined = code + chr(10) * 2 + date_snippet.code
+    return parsed, CodeSnippet(code=combined, imports=["import pandas as pd"]), converted
 
 
 def load_csv(path: str | Path, **kwargs: Any) -> tuple[pd.DataFrame, CodeSnippet]:
@@ -20,7 +41,8 @@ def load_csv(path: str | Path, **kwargs: Any) -> tuple[pd.DataFrame, CodeSnippet
     var_name = _sanitize_name(path.stem)
     code = f'{var_name} = pd.read_csv("{path.name}"{kwargs_str})'
 
-    return df, CodeSnippet(code=code, imports=["import pandas as pd"])
+    df, snippet, _ = _apply_date_parsing(df, code)
+    return df, snippet
 
 
 def load_excel(
@@ -38,7 +60,8 @@ def load_excel(
     var_name = _sanitize_name(path.stem)
     code = f'{var_name} = pd.read_excel("{path.name}"{kwargs_str})'
 
-    return df, CodeSnippet(code=code, imports=["import pandas as pd"])
+    df, snippet, _ = _apply_date_parsing(df, code)
+    return df, snippet
 
 
 def load_url(url: str, **kwargs: Any) -> tuple[pd.DataFrame, CodeSnippet]:
@@ -48,7 +71,8 @@ def load_url(url: str, **kwargs: Any) -> tuple[pd.DataFrame, CodeSnippet]:
     kwargs_str = _format_kwargs(kwargs)
     code = f'df = pd.read_csv("{url}"{kwargs_str})'
 
-    return df, CodeSnippet(code=code, imports=["import pandas as pd"])
+    df, snippet, _ = _apply_date_parsing(df, code)
+    return df, snippet
 
 
 def load_bundled(name: str) -> tuple[pd.DataFrame, CodeSnippet]:
@@ -75,13 +99,15 @@ def load_from_bytes(
         kwargs_str = _format_kwargs(kwargs)
         var_name = _sanitize_name(Path(filename).stem)
         code = f'{var_name} = pd.read_excel("{filename}"{kwargs_str})'
-        return df, CodeSnippet(code=code, imports=["import pandas as pd"])
+        df, snippet, _ = _apply_date_parsing(df, code)
+        return df, snippet
     else:
         df = pd.read_csv(io.BytesIO(content), **kwargs)
         kwargs_str = _format_kwargs(kwargs)
         var_name = _sanitize_name(Path(filename).stem)
         code = f'{var_name} = pd.read_csv("{filename}"{kwargs_str})'
-        return df, CodeSnippet(code=code, imports=["import pandas as pd"])
+        df, snippet, _ = _apply_date_parsing(df, code)
+        return df, snippet
 
 
 def _sanitize_name(name: str) -> str:
