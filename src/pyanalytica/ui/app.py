@@ -290,10 +290,99 @@ def create_app(config: CourseConfig | None = None) -> App:
 app = create_app()
 
 
-def main():
+def _port_is_free(host: str, port: int) -> bool:
+    """Return True if *port* can be bound on *host* right now."""
+    import socket
+
+    # Deliberately NOT setting SO_REUSEADDR: on Windows that flag lets a
+    # socket bind a port another socket already holds, so the probe would
+    # report a busy port as free. uvicorn sets it, which is exactly the case
+    # this function exists to detect.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def _resolve_port(host: str, requested: int | None, default: int = 8000) -> int:
+    """Choose a port to serve on.
+
+    An explicitly requested port is honoured or the caller is told it is taken
+    -- silently moving somebody off the port they asked for is worse than
+    failing. When no port was requested and the default is busy (usually the
+    app already running in another window), pick a free one instead of dying
+    with "address already in use", which is not a useful thing to say to
+    someone who has never used a terminal.
+    """
+    import socket
+
+    if requested is not None:
+        if not _port_is_free(host, requested):
+            raise SystemExit(
+                f"Port {requested} on {host} is already in use. "
+                f"Close whatever is using it, or pass a different --port."
+            )
+        return requested
+
+    if _port_is_free(host, default):
+        return default
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
+def _parse_args(argv: list[str] | None = None):
+    """Parse command-line arguments for the ``pyanalytica`` command."""
+    import argparse
+
+    from pyanalytica import __version__
+
+    parser = argparse.ArgumentParser(
+        prog="pyanalytica",
+        description="Start the PyAnalytica analytics workbench in your browser.",
+    )
+    parser.add_argument(
+        "--port", type=int, default=None,
+        help="Port to serve on (default: 8000, or the next free port if busy).",
+    )
+    parser.add_argument(
+        "--host", default="127.0.0.1",
+        help="Address to bind (default: 127.0.0.1, reachable only from this computer).",
+    )
+    parser.add_argument(
+        "--no-browser", action="store_true",
+        help="Do not open a browser window automatically.",
+    )
+    parser.add_argument("--version", action="version", version=f"pyanalytica {__version__}")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):
     """CLI entry point."""
     import shiny
-    shiny.run_app("pyanalytica.ui.app:app")
+
+    args = _parse_args(argv)
+    port = _resolve_port(args.host, args.port)
+    url = f"http://{args.host}:{port}"
+
+    # flush=True: stdout is block-buffered when piped, and this banner is the
+    # only place a student is told which address to open. It must not sit in a
+    # buffer behind uvicorn's own logging.
+    if args.port is None and port != 8000:
+        print(f"Port 8000 was busy, using {port} instead.", flush=True)
+    print(f"PyAnalytica is starting at {url}", flush=True)
+    print("Open that address in your browser if it does not open by itself.", flush=True)
+    print("Press Ctrl+C in this window to stop.", flush=True)
+
+    shiny.run_app(
+        "pyanalytica.ui.app:app",
+        host=args.host,
+        port=port,
+        launch_browser=not args.no_browser,
+    )
 
 
 if __name__ == "__main__":

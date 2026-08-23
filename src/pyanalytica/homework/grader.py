@@ -45,6 +45,24 @@ def hash_answer(answer: str | float, tolerance: float = 0.0) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+def awaits_instructor(question: HomeworkQuestion) -> bool:
+    """Return True if this question must not be marked on the student's machine.
+
+    Two cases:
+
+    * ``free_response`` -- there is nothing to compare against.
+    * ``graded: true``  -- the assignment was built without answer material for
+      this question precisely so the answer could not be recovered locally.
+      Checking it here would compare against an empty hash and tell a student
+      their correct answer was wrong.
+
+    Both are scored later by :mod:`pyanalytica.homework.regrade`.
+    """
+    if question.type == "free_response":
+        return True
+    return bool(getattr(question, "graded", False))
+
+
 def check_answer(
     question: HomeworkQuestion,
     student_answer: str | float,

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-08-22
+
+### Fixed
+
+- `pyanalytica` now accepts `--port`, `--host`, `--no-browser`, and
+  `--version`. It previously called `run_app()` with no argument parsing, so
+  every option was silently ignored — `--port 8001` still bound 8000, and a
+  mistyped option did nothing rather than reporting the mistake.
+- The app opens a browser on start instead of leaving students to find the
+  address themselves.
+- If port 8000 is busy (usually the app already running in another window),
+  a free port is chosen and reported, rather than crashing with
+  "address already in use". An explicitly requested port still fails loudly.
+
 ## [0.5.0] - 2026-08-22
 
 > Note: releases 0.2.0 through 0.4.6 were not recorded here.

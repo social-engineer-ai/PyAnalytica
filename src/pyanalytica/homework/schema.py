@@ -29,6 +29,7 @@ HOMEWORK_SCHEMA = {
                         ],
                     },
                     "answer_hash": {"type": "string"},
+                    "graded": {"type": "boolean", "default": False},
                     "tolerance": {"type": "number", "default": 0.01},
                     "points": {"type": "integer", "default": 1},
                     "hint": {"type": "string"},
