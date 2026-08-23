@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Unit tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -30,6 +31,54 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ -v --ignore=tests/test_e2e.py
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    # One Python version only. The matrix above exists to catch packaging and
+    # dependency problems; the browser suite tests UI behaviour, which does not
+    # vary by interpreter, and each run costs ~6 minutes of a browser session.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,all]"
+
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Generate bundled datasets
+        run: python -m pyanalytica.datasets.generate
+
+      - name: Run end-to-end tests
+        run: python -m pytest tests/test_e2e.py -v
+        env:
+          MPLBACKEND: Agg
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    # Only build once the code is known good, so a green build badge cannot
+    # sit above a failing suite.
+    needs: [test, e2e]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,all]"
+
+      - name: Generate bundled datasets
+        run: python -m pyanalytica.datasets.generate
 
       - name: Build package
         run: |

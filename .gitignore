@@ -36,3 +36,9 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Homework answer material -- must never reach a public repo.
+# Masters hold plaintext answers; keys are generated from them.
+# Course content belongs in a private repo or the LMS, not here.
+*.master.yaml
+*.key.yaml

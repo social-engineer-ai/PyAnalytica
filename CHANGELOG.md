@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-22
+
+> Note: releases 0.2.0 through 0.4.6 were not recorded here.
+
+### Added
+
+- **Homework authoring** (`homework/authoring.py`) — a master file holds
+  plaintext answers and stays on the author's machine; `build()` derives the
+  student copy and the instructor answer key from it. Questions marked
+  `graded: true` ship with no answer material at all, so their answers cannot
+  be recovered from the student copy. Questions left ungraded keep a hash for
+  immediate in-app feedback.
+- **Authoritative re-grading** (`homework/regrade.py`) — scores collected
+  submissions from their raw answers using the instructor key, ignoring the
+  scores the student's app wrote into the file. Reports (but does not act on)
+  disagreements between claimed and recomputed totals.
+- `_assert_code()` coverage in the end-to-end suite: every tested module must
+  emit a Show Code snippet that parses as valid Python and contains the
+  expected call.
+- Browser tests now run in CI.
+
+### Fixed
+
+- **Active dataset no longer resets when the selector refreshes.** Any state
+  change — applying a transform, loading a second file — silently switched the
+  active dataset to whichever name sorted first alphabetically.
+- End-to-end suite repaired: 19 of 40 tests were failing and had never run in
+  CI. Test runs are now isolated from `~/.pyanalytica`, so they neither inherit
+  state from previous runs nor overwrite the user's own saved session.
+- Numeric answers entered as text (`"19.790"`) are coerced before comparison
+  during re-grading, instead of being marked wrong.
+- Profile tests no longer read a real `ANTHROPIC_API_KEY` from the
+  environment, which decided their outcome and printed the key on failure.
+
 ## [0.1.0] - 2025-02-10
 
 ### Added
