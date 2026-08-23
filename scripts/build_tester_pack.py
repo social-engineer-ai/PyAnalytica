@@ -124,24 +124,25 @@ def main() -> None:
         if found:
             fail(f"refusing to package {pattern}: {[str(p) for p in found]}")
 
-    # Parse the YAML rather than pattern-matching it. The first version of this
-    # check split on "\n  - id:", which never matches because yaml.safe_dump
-    # writes list items at the parent's indent -- so the guard silently passed
-    # everything, including a deliberately poisoned file. Checked by injecting
-    # a hash onto a graded question and confirming the build now refuses.
+    # Reuse the package's own guard rather than re-implementing it. The first
+    # version of this script hand-rolled the check with string matching and
+    # silently passed a deliberately poisoned file, because it split the YAML
+    # on a two-space list indent that yaml.safe_dump does not produce. The
+    # library version inspects parsed structures, is covered by tests, and is
+    # the same check that runs when an assignment is built -- so there is one
+    # implementation to get right, not two.
+    sys.path.insert(0, str(ROOT / "src"))
     import yaml
+    from pyanalytica.homework.authoring import (  # noqa: E402
+        HomeworkBuildError,
+        assert_no_answers_leaked,
+    )
 
     hw = yaml.safe_load((STAGE / "data" / "hw1_tips.yaml").read_text(encoding="utf-8"))
-    for question in hw.get("questions", []):
-        qid = question.get("id", "?")
-        for secret in ("answer", "solution", "answer_key"):
-            if secret in question:
-                fail(f"question {qid} carries a plaintext '{secret}' -- that is a master file")
-        if question.get("graded") and question.get("answer_hash"):
-            fail(
-                f"question {qid} is graded but ships an answer_hash, "
-                f"which is recoverable by sweeping candidate answers"
-            )
+    try:
+        assert_no_answers_leaked(hw)
+    except HomeworkBuildError as exc:
+        fail(f"homework file is not safe to distribute: {exc}")
 
     # --- zip it ---
     if ZIP_PATH.exists():
