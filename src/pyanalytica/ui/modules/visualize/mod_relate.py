@@ -5,7 +5,7 @@ from __future__ import annotations
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
+from pyanalytica.core.types import get_groupable_columns, get_numeric_columns
 from pyanalytica.visualize.relate import hexbin, scatter
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.selects import (
@@ -57,7 +57,7 @@ def relate_server(input, output, session, state: WorkbenchState, get_current_df)
         df = get_current_df()
         if df is not None:
             num_cols = get_numeric_columns(df)
-            cat_cols = get_categorical_columns(df)
+            cat_cols = get_groupable_columns(df)
             update_choices(input, "x", num_cols)
             update_choices(input, "y", num_cols)
             update_choices(input, "color_by", [""] + cat_cols, allow_none=True)

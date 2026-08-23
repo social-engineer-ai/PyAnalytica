@@ -6,7 +6,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import get_categorical_columns
+from pyanalytica.core.types import get_groupable_columns
 from pyanalytica.explore.crosstab import create_crosstab
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
@@ -46,7 +46,7 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
     def _update_cols():
         df = get_current_df()
         if df is not None:
-            cat_cols = get_categorical_columns(df)
+            cat_cols = get_groupable_columns(df)
             all_cols = list(df.columns)
             choices = cat_cols if cat_cols else all_cols
             update_choices(input, "row_var", choices)

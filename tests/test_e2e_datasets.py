@@ -38,9 +38,10 @@ from tests.test_e2e import (  # reuse the harness
     _select_option,
     _sid,
     _wait_stable,
-    app_url,  # noqa: F401 - fixture
-    page,  # noqa: F401 - fixture
 )
+
+# `app_url` and `page` come from tests/conftest.py, so this module gets its own
+# app and browser rather than sharing test_e2e's.
 
 
 def _load_bundled(page, name: str) -> None:
@@ -112,9 +113,19 @@ class TestDegenerateSelections:
         _click_button(page, _sid("correlate", "run_btn"))
         _wait_stable(page, 3500)
 
-        # Either a chart or an explanation. Silence is the bug: the element
-        # existed and showed nothing at all.
-        _assert_output_has_content(page, _sid("correlate", "chart"), kind="any")
+        # Either a chart or an explanation, and the explanation lives in its
+        # own output beside the plot. Silence is the bug -- the chart element
+        # existed and showed nothing, with no reason given anywhere.
+        guidance = page.locator(_sid("correlate", "guidance")).inner_text().strip()
+        chart_images = page.locator(f"{_sid('correlate', 'chart')} img").count()
+
+        assert guidance or chart_images, (
+            "selecting one column produced no chart and no explanation"
+        )
+        if guidance:
+            assert "two" in guidance.lower(), (
+                f"the explanation should say how many columns are needed: {guidance!r}"
+            )
 
     def test_correlate_with_several_columns_draws(self, page):
         _load_bundled(page, "titanic")

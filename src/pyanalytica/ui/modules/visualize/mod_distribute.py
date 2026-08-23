@@ -6,7 +6,7 @@ import pandas as pd
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import ColumnType, classify_column, get_categorical_columns
+from pyanalytica.core.types import ColumnType, classify_column, get_groupable_columns
 from pyanalytica.visualize.distribute import bar_chart, boxplot, histogram, violin
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.selects import (
@@ -55,7 +55,7 @@ def distribute_server(input, output, session, state: WorkbenchState, get_current
     def _update_cols():
         df = get_current_df()
         if df is not None:
-            cat_cols = get_categorical_columns(df)
+            cat_cols = get_groupable_columns(df)
             update_choices(input, "col", list(df.columns))
             update_choices(input, "group_by", [""] + cat_cols, allow_none=True)
             update_choices(input, "facet_col", [""] + cat_cols, allow_none=True)

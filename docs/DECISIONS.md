@@ -205,3 +205,54 @@ package is the instrument; assignments are content with a different lifetime and
 a different distribution. `*.master.yaml` and `*.key.yaml` are gitignored so
 answer keys cannot reach a public repository by accident, and the pack builder
 refuses to ship a file containing answer material.
+
+---
+
+## 11. Test what a user sees, on the data they use
+
+**Decision.** Browser tests assert rendered content, not element existence, and
+parameterise over column *shapes* rather than modules. Added
+`tests/test_e2e_datasets.py` alongside the main suite.
+
+**How we got there.** A 12th-grade tester worked sessions 1-5 of the worksheet
+on `titanic` and his own CSVs. In about an hour he found faults that 36 passing
+browser tests had covered without noticing. Replicating each one showed the
+suite was not thin on coverage -- it was thin on *assertions* and on *data*.
+
+Three blind spots, each now an oracle:
+
+*An error rendered as text is not a Shiny error.* Pivoting by a numeric column
+crashed with `'DataFrame' object has no attribute 'dtype'`, but the module
+caught it and returned the message as a string, so no `.shiny-output-error`
+existed and `_assert_no_shiny_errors` passed while a stack-trace fragment sat
+where a table should be. → `_assert_no_error_text`.
+
+*Existence is not content.* `expect(x).to_be_attached()` passes on an element
+that renders nothing. Correlate with one column selected showed nothing at all
+and the suite was satisfied. → `_assert_output_has_content`.
+
+*A missing option raises nothing.* `Survived` never appeared in Cross-tab
+because a 0/1 integer classifies as numeric and the categorical filter dropped
+it. Nothing failed; the choice simply was not offered. →
+`_assert_choices_include`.
+
+**The deeper cause was the data.** Every test ran on `tips` with one hand-picked
+column pair. The pivot crash is not dataset-specific at all: pivoting tips by
+`sex` works and by `size` crashes, because the second produces integer column
+labels. The suite had picked the combination that works. Bugs here live in
+column *shape* -- numeric vs string labels, binary integers, all-missing,
+constant -- so that is what the new file varies.
+
+**Two follow-on lessons, both learned the hard way in the same session.**
+
+The fix for one half of a behaviour can break the other half. Stopping the
+dataset selector from jumping on refresh also stopped it moving when a dataset
+was loaded; fixing *that* by honouring `state.last_loaded` then dragged the user
+back to it on every later change. Correct behaviour needed both halves stated
+explicitly: preserve on refresh, move once per load, tracked by sequence rather
+than name.
+
+Suites that pass alone can fail together. The 16-failure regression above only
+appeared when both browser files ran in one session, because the new tests
+loaded datasets in a pattern the old ones never did. Run them together in CI,
+not separately.

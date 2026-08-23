@@ -6,7 +6,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import get_categorical_columns
+from pyanalytica.core.types import get_groupable_columns
 from pyanalytica.analyze.proportions import (
     chi_square_test, goodness_of_fit_test, one_proportion_ztest, two_proportion_ztest,
 )
@@ -56,7 +56,7 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
     def _update_cols():
         df = get_current_df()
         if df is not None:
-            cats = get_categorical_columns(df)
+            cats = get_groupable_columns(df)
             choices = cats if cats else list(df.columns)
             update_choices(input, "row_var", choices)
             update_choices(input, "col_var", choices)
@@ -71,7 +71,7 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
         df = get_current_df()
         cats = []
         if df is not None:
-            cats = get_categorical_columns(df)
+            cats = get_groupable_columns(df)
             if not cats:
                 cats = list(df.columns)
 

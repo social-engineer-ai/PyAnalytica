@@ -7,7 +7,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
 from pyanalytica.core.state import WorkbenchState
-from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
+from pyanalytica.core.types import get_groupable_columns, get_numeric_columns
 from pyanalytica.analyze.means import (
     kruskal_wallis_test, mann_whitney_test, one_sample_ttest, one_way_anova, two_sample_ttest,
 )
@@ -72,22 +72,22 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
                 alt_select,
             )
         elif tt == "two_sample":
-            cats = get_categorical_columns(df) if df is not None else []
+            cats = get_groupable_columns(df) if df is not None else []
             return ui.div(
                 ui.input_select("group_col", "Group Variable", choices=cats),
                 alt_select,
             )
         elif tt == "anova":
-            cats = get_categorical_columns(df) if df is not None else []
+            cats = get_groupable_columns(df) if df is not None else []
             return ui.input_select("group_col", "Group Variable", choices=cats)
         elif tt == "mann_whitney":
-            cats = get_categorical_columns(df) if df is not None else []
+            cats = get_groupable_columns(df) if df is not None else []
             return ui.div(
                 ui.input_select("group_col", "Group Variable", choices=cats),
                 alt_select,
             )
         elif tt == "kruskal":
-            cats = get_categorical_columns(df) if df is not None else []
+            cats = get_groupable_columns(df) if df is not None else []
             return ui.input_select("group_col", "Group Variable", choices=cats)
         elif tt == "normality":
             return ui.div()

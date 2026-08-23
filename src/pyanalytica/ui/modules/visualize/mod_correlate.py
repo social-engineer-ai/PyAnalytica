@@ -35,6 +35,7 @@ def correlate_ui():
                         class_="btn btn-outline-secondary btn-sm"),
                 ),
             ),
+            ui.output_ui("guidance"),
             ui.output_plot("chart", height="600px"),
             full_screen=True,
         ),
@@ -59,6 +60,9 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
         df = get_current_df()
         req(df is not None)
         cols = list(input.cols())
+        # Was req(len(cols) >= 2), which aborts the render silently: a tester
+        # selecting one column saw nothing happen and no reason why. The
+        # guidance output below explains it instead.
         req(len(cols) >= 2)
         ct = input.chart_type()
 
@@ -88,5 +92,34 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
         fig = _last_fig()
         req(fig is not None)
         return fig
+
+    @render.ui
+    def guidance():
+        df = get_current_df()
+        if df is None:
+            return ui.TagList()
+
+        chosen = list(input.cols())
+        if len(chosen) >= 2:
+            return ui.TagList()
+
+        numeric_available = len(get_numeric_columns(df))
+        if numeric_available < 2:
+            return ui.div(
+                ui.tags.strong("Cannot plot: "),
+                f"this dataset has {numeric_available} numeric column"
+                f"{'' if numeric_available == 1 else 's'}. A correlation "
+                f"compares numeric columns to each other, so it needs at "
+                f"least two.",
+                class_="alert alert-warning",
+            )
+
+        return ui.div(
+            ui.tags.strong("Choose at least two columns. "),
+            "A correlation measures how two columns move together, so one "
+            "column on its own has nothing to be compared with. Hold Ctrl "
+            "(Cmd on a Mac) to select more than one.",
+            class_="alert alert-info",
+        )
 
     code_panel_server("code", get_code=last_code)

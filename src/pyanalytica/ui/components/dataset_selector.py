@@ -38,6 +38,10 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
     # Which dataset names we have already offered, so a newly loaded one can be
     # told apart from a list that merely refreshed.
     known_names: reactive.Value[set[str]] = reactive.value(set())
+    # The load we have already switched to, so one load moves the user once.
+    # Tracked by sequence rather than name: loading tips, switching away, then
+    # loading tips again is two loads and should move the user twice.
+    honoured_load: reactive.Value[int] = reactive.value(0)
 
     @reactive.effect
     def _update_choices():
@@ -65,15 +69,27 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
         with reactive.isolate():
             current = input.dataset()
             already_seen = set(known_names())
+            # Read under isolate as well: reading it normally makes this effect
+            # depend on a value it writes, so setting it re-ran the effect, the
+            # sequence then matched, and the second pass quietly re-selected
+            # the previous dataset -- undoing the switch it had just made.
+            honoured = honoured_load()
 
         arrived = [name for name in names if name not in already_seen]
         known_names.set(set(names))
 
         # A dataset the user just loaded wins, whether or not it is new to the
-        # list: reloading one that is already there should still take you to
-        # it. Then a genuinely new name. Then whatever was already selected.
+        # list: reloading one already there should still take you to it. Then a
+        # genuinely new name. Then whatever was already selected.
+        #
+        # Honour each load exactly once. Acting on state.last_loaded every time
+        # this effect fires means any later change -- a transform, visiting a
+        # tab -- drags the user back to the last dataset they loaded, even
+        # after they deliberately switched away.
         just_loaded = getattr(state, "last_loaded", None)
-        if just_loaded and just_loaded in names and just_loaded != current:
+        load_seq = getattr(state, "load_seq", 0)
+        if just_loaded and just_loaded in names and load_seq != honoured:
+            honoured_load.set(load_seq)
             selected = just_loaded
         elif arrived:
             selected = arrived[-1]

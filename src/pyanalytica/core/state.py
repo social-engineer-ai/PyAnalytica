@@ -37,6 +37,9 @@ class WorkbenchState:
     def __init__(self) -> None:
         self.datasets: dict[str, pd.DataFrame] = {}
         self.last_loaded: str | None = None
+        # Incremented per load, so the selector can tell "loaded again" from
+        # "same name as last time" and move the user on every explicit load.
+        self.load_seq: int = 0
         self.originals: dict[str, pd.DataFrame] = {}
         self._history_stack: list[tuple[str, pd.DataFrame]] = []  # For undo
         self.history: list[Operation] = []
@@ -91,6 +94,7 @@ class WorkbenchState:
         # is new" from the choice list fails when a student reloads a dataset
         # that is already there -- they still expect to land on it.
         self.last_loaded = name
+        self.load_seq += 1
         self.datasets[name] = df
         self.originals[name] = df.copy()
         self.history.append(Operation(

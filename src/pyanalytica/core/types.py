@@ -84,6 +84,57 @@ def get_categorical_columns(df: pd.DataFrame) -> list[str]:
     return [col for col, ct in classify_columns(df).items() if ct == ColumnType.CATEGORICAL]
 
 
+# A numeric column with this many distinct whole-number values or fewer is
+# offered as a grouping variable. Survived (2) and Pclass (3) qualify; Age (88)
+# and Fare do not.
+MAX_GROUPABLE_LEVELS = 12
+
+
+def is_groupable(series: pd.Series, max_levels: int = MAX_GROUPABLE_LEVELS) -> bool:
+    """Whether a column can sensibly be grouped or cross-tabulated by.
+
+    Categorical and boolean columns always qualify. A numeric column qualifies
+    when it holds a small number of whole numbers -- a 0/1 outcome or a 1-2-3
+    class is a category to a student, whatever its dtype says.
+
+    Deliberately separate from :func:`classify_column`, which stays as it is:
+    `Survived` must remain NUMERIC so it can be a regression target or enter a
+    correlation. This answers the different question of what belongs in a
+    dropdown asking for a grouping variable.
+    """
+    if series.dropna().empty:
+        return False
+
+    kind = classify_column(series)
+    if kind in (ColumnType.CATEGORICAL, ColumnType.DATETIME):
+        return True
+    if kind != ColumnType.NUMERIC:
+        return False
+
+    values = series.dropna()
+    if values.nunique() > max_levels:
+        return False
+    if pd.api.types.is_bool_dtype(values):
+        return True
+    try:
+        return bool((values == values.round()).all())
+    except (TypeError, ValueError):
+        return False
+
+
+def get_groupable_columns(
+    df: pd.DataFrame, max_levels: int = MAX_GROUPABLE_LEVELS
+) -> list[str]:
+    """Columns a student can group or cross-tabulate by.
+
+    Categorical columns plus low-cardinality integer ones. A tester could not
+    cross-tabulate `Sex` against `Survived` because a 0/1 integer classifies as
+    numeric and was filtered out of the variable list -- nothing errored, the
+    option simply was not offered.
+    """
+    return [col for col in df.columns if is_groupable(df[col], max_levels)]
+
+
 def get_datetime_columns(df: pd.DataFrame) -> list[str]:
     """Return column names classified as DATETIME."""
     return [col for col, ct in classify_columns(df).items() if ct == ColumnType.DATETIME]

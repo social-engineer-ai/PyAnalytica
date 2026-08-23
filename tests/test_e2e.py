@@ -30,30 +30,6 @@ from playwright.sync_api import Page, expect
 # Utility helpers
 # ---------------------------------------------------------------------------
 
-def _free_port() -> int:
-    """Find an available TCP port."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-def _wait_for_server(url: str, timeout: float = 60.0) -> None:
-    """Poll *url* until it responds with 200 or *timeout* seconds elapse."""
-    import urllib.request
-    import urllib.error
-
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            resp = urllib.request.urlopen(url, timeout=5)
-            if resp.status == 200:
-                return
-        except (urllib.error.URLError, OSError, ConnectionRefusedError):
-            pass
-        time.sleep(1.0)
-    raise TimeoutError(f"Server at {url} did not become ready within {timeout}s")
-
-
 # ---------------------------------------------------------------------------
 # Shiny module-namespaced selector helpers
 #
@@ -382,89 +358,6 @@ def _discover_nav(page: Page) -> "dict[str, list[str]]":
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC_DIR = os.path.join(BASE_DIR, "src")
-
-
-@pytest.fixture(scope="module")
-def app_url() -> Generator[str, None, None]:
-    """Start the Shiny app on a random port and yield its URL.
-
-    The process is killed after all tests in this module complete.
-    """
-    port = _free_port()
-    url = f"http://127.0.0.1:{port}"
-
-    env = os.environ.copy()
-    # Ensure our src is on PYTHONPATH
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = SRC_DIR + (os.pathsep + existing if existing else "")
-
-    # Use non-interactive matplotlib backend to avoid Tk issues
-    env["MPLBACKEND"] = "Agg"
-
-    # Isolate the app from the real home directory.
-    #
-    # core/session.py autosaves the workbench to ~/.pyanalytica/sessions and
-    # app.py restores it on startup.  Without this the suite (a) inherits
-    # whatever the previous run left behind, so results depend on run history,
-    # and (b) overwrites the user's own saved session on the way out.
-    fake_home = tempfile.mkdtemp(prefix="pyanalytica-e2e-home-")
-    env["HOME"] = fake_home
-    env["USERPROFILE"] = fake_home
-
-    proc = subprocess.Popen(
-        [
-            sys.executable, "-m", "shiny", "run",
-            os.path.join(SRC_DIR, "pyanalytica", "ui", "app.py"),
-            "--port", str(port),
-            "--host", "127.0.0.1",
-        ],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    try:
-        _wait_for_server(url, timeout=90)
-    except TimeoutError:
-        proc.kill()
-        stdout, stderr = proc.communicate(timeout=5)
-        raise RuntimeError(
-            f"Shiny app failed to start on port {port}.\n"
-            f"STDOUT: {stdout.decode(errors='replace')}\n"
-            f"STDERR: {stderr.decode(errors='replace')}"
-        )
-
-    yield url
-
-    proc.terminate()
-    try:
-        proc.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=5)
-
-    shutil.rmtree(fake_home, ignore_errors=True)
-
-
-@pytest.fixture(scope="module")
-def page(app_url: str) -> Generator[Page, None, None]:
-    """Module-scoped page that stays open across all tests."""
-    from playwright.sync_api import sync_playwright
-
-    pw = sync_playwright().start()
-    browser = pw.chromium.launch()
-    ctx = browser.new_context()
-    pg = ctx.new_page()
-    pg.goto(app_url, wait_until="networkidle")
-    _wait_stable(pg, 3000)
-    yield pg
-    ctx.close()
-    browser.close()
-    pw.stop()
-
 
 # ============================================================================
 # Test functions — ordered by naming convention (t01_, t02_, ...) so that
