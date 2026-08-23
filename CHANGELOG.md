@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-08-23
+
+Everything here came from one human tester working through the first five
+sessions of the test worksheet on `titanic` and his own CSVs. The automated
+suite had passed all of it.
+
+### Fixed
+
+- **Pivoting by a numeric column crashed.** The pivot's column labels become
+  integers and the data grid failed with "'DataFrame' object has no attribute
+  'dtype'", which reached the student as raw text where a table should be. Not
+  dataset-specific: pivoting tips by `sex` worked and by `size` did not.
+- **Dropdowns reset or went stale.** `update_select` without an explicit
+  `selected` snaps the input to the first choice, and between the list changing
+  and the reset landing the old value is still live — merging two datasets
+  raised `['carat'] not in index`, naming a column from a dataset chosen
+  earlier. 49 call sites across 19 modules now preserve the current value.
+- **Loading a dataset did not switch to it**, so students loaded a file and
+  then had to find the dropdown themselves.
+- **Binary and small-integer columns could not be grouped by.** `Survived`
+  (0/1) and `Pclass` (1-3) classify as numeric, so neither appeared in any
+  "group by" or "cross-tabulate by" list — on the course's main teaching
+  dataset. They are offered now; their classification is unchanged, so they
+  remain valid regression targets.
+- **Correlate with one column selected did nothing at all** — no chart, no
+  message. It now explains that a correlation needs two columns.
+- `examples/hw1_tips` and its grading demo asked for the mean of `total_bill`
+  with the value from the real seaborn dataset rather than the bundled one.
+
+### Changed
+
+- Browser tests assert what is rendered rather than that elements exist, and a
+  new suite varies the *data* — numeric versus string pivot labels, binary
+  outcomes, degenerate selections — instead of only the module under test.
+  Unit 640 → 737; browser 36 → 47.
+
 ## [0.6.0] - 2026-08-23
 
 ### Changed
