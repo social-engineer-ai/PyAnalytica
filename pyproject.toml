@@ -52,6 +52,7 @@ all = ["anthropic>=0.20", "nbformat>=5.9", "playwright>=1.40", "edge-tts>=6.1"]
 [project.scripts]
 pyanalytica = "pyanalytica.ui.app:main"
 pyanalytica-hw = "pyanalytica.homework.cli:main"
+pyanalytica-tutor = "pyanalytica.tutor.cli:main"
 
 [tool.hatch.version]
 path = "src/pyanalytica/__init__.py"
