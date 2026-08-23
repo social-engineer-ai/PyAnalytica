@@ -11,10 +11,13 @@ Requirements:
 
 from __future__ import annotations
 
+import ast
 import os
 import random
+import shutil
 import socket
 import subprocess
+import tempfile
 import sys
 import time
 from typing import Generator
@@ -173,6 +176,121 @@ def _wait_stable(page: Page, ms: int = 2000) -> None:
 
 
 # ---------------------------------------------------------------------------
+# "Show Code" panel helpers
+#
+# Every analytics module mounts the shared component as code_panel_ui("code"),
+# which nests a Shiny module inside a Shiny module.  Namespaces join with "-",
+# so the toggle button for module "distribute" has id
+# "distribute-code-toggle_code" and the output "distribute-code-code_display".
+# ---------------------------------------------------------------------------
+
+def _nested_sid(module: str, child: str, widget: str) -> str:
+    """Build a selector for a widget inside a module nested in another module.
+
+    Shiny joins namespaces with "-", so a widget "decimals" in child module
+    "dec" mounted inside module "view" has id "view-dec-decimals".  Nesting
+    _sid() inside itself produces "#view-#dec-decimals", which matches nothing.
+    """
+    return f"#{module}-{child}-{widget}"
+
+
+def _code_sid(module: str, widget: str) -> str:
+    """Build a selector for a widget inside a module's nested code panel."""
+    return _nested_sid(module, "code", widget)
+
+
+def _open_code_panel(page: Page, module: str, *, timeout: float = 10_000) -> None:
+    """Expand the Show Code panel for *module* if it is currently collapsed.
+
+    The panel keeps its open/closed state for the life of the session, and the
+    page fixture is module-scoped, so this must be idempotent.
+    """
+    toggle = page.locator(_code_sid(module, "toggle_code"))
+    toggle.wait_for(state="visible", timeout=timeout)
+    toggle.scroll_into_view_if_needed()
+    if "Show Code" in toggle.inner_text():
+        toggle.click()
+        _wait_stable(page, 1200)
+
+
+def _read_code(page: Page, module: str, *, timeout: float = 10_000) -> str:
+    """Open the code panel for *module* and return the emitted snippet text."""
+    _open_code_panel(page, module)
+    block = page.locator(f"{_code_sid(module, 'code_display')} pre code")
+    block.wait_for(state="visible", timeout=timeout)
+    return block.inner_text()
+
+
+def _assert_code(page: Page, module: str, *fragments: str) -> str:
+    """Assert the module emitted a usable code snippet, and return it.
+
+    Two tiers of check:
+      1. Universal -- the panel produced something other than the placeholder,
+         and that something parses as valid Python.  A snippet a student cannot
+         paste into a notebook is a bug regardless of its contents.
+      2. Specific -- each fragment in *fragments* appears in the snippet, which
+         pins the emitted code to the operation the user actually asked for.
+    """
+    code = _read_code(page, module)
+
+    assert code.strip(), f"[{module}] Show Code panel is empty"
+    assert "No code generated yet." not in code, (
+        f"[{module}] Show Code still shows the placeholder -- the action ran "
+        f"but recorded no snippet"
+    )
+
+    try:
+        ast.parse(code)
+    except SyntaxError as exc:
+        pytest.fail(
+            f"[{module}] emitted code is not valid Python ({exc.msg} at line "
+            f"{exc.lineno}):" + chr(10) + code
+        )
+
+    missing = [f for f in fragments if f not in code]
+    if missing:
+        pytest.fail(
+            f"[{module}] emitted code is missing expected fragment(s) "
+            f"{missing}:" + chr(10) + code
+        )
+    return code
+
+
+# ---------------------------------------------------------------------------
+# Navigation discovery
+# ---------------------------------------------------------------------------
+
+def _discover_nav(page: Page) -> "dict[str, list[str]]":
+    """Read the app's navigation structure from the live DOM.
+
+    Returns {top_level_label: [sub_tab_labels]}; a top-level panel with no
+    sub-tabs (e.g. "Homework") maps to an empty list.  Discovering this rather
+    than hand-listing it means a tab added to app.py is swept automatically.
+    """
+    tops = [
+        t.strip()
+        for t in page.locator(
+            "ul.navbar-nav > li.nav-item > a.nav-link"
+        ).all_inner_texts()
+        if t.strip()
+    ]
+
+    structure: "dict[str, list[str]]" = {}
+    for top in tops:
+        _nav_to(page, top)
+        _wait_stable(page, 1200)
+        subs = [
+            t.strip()
+            for t in page.locator(
+                "ul.nav-tabs:visible > li.nav-item > a.nav-link"
+            ).all_inner_texts()
+            if t.strip()
+        ]
+        structure[top] = subs
+    return structure
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -196,6 +314,16 @@ def app_url() -> Generator[str, None, None]:
 
     # Use non-interactive matplotlib backend to avoid Tk issues
     env["MPLBACKEND"] = "Agg"
+
+    # Isolate the app from the real home directory.
+    #
+    # core/session.py autosaves the workbench to ~/.pyanalytica/sessions and
+    # app.py restores it on startup.  Without this the suite (a) inherits
+    # whatever the previous run left behind, so results depend on run history,
+    # and (b) overwrites the user's own saved session on the way out.
+    fake_home = tempfile.mkdtemp(prefix="pyanalytica-e2e-home-")
+    env["HOME"] = fake_home
+    env["USERPROFILE"] = fake_home
 
     proc = subprocess.Popen(
         [
@@ -228,6 +356,8 @@ def app_url() -> Generator[str, None, None]:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+
+    shutil.rmtree(fake_home, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -275,7 +405,7 @@ class TestInfrastructure:
         """The decimals dropdown is present on the Data > View tab (not global header)."""
         _nav_to(page, "Data", "View")
         _wait_stable(page, 2000)
-        sel = page.locator(_sid("view", _sid("dec", "decimals")))
+        sel = page.locator(_nested_sid("view", "dec", "decimals"))
         expect(sel).to_be_attached()
 
     def test_t04_initial_dropdown_shows_none(self, page: Page):
@@ -315,6 +445,8 @@ class TestDataLoad:
         expect(ds_sel).to_contain_text("tips")
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "load", "pd.read_csv")
     def test_t06_load_diamonds(self, page: Page):
         """Load the bundled 'diamonds' dataset so two datasets are available."""
         _nav_to(page, "Data", "Load")
@@ -335,9 +467,19 @@ class TestDataLoad:
         _assert_no_shiny_errors(page)
 
     def test_t07_switch_back_to_tips(self, page: Page):
-        """Switch the active dataset back to tips for remaining tests."""
+        """Switch the active dataset back to tips for remaining tests.
+
+        Every later test selects tips columns, so a silent failure here used to
+        surface 26 tests downstream as a wall of unrelated timeouts.  Assert it.
+        """
         _select_option(page, _sid("ds", "dataset"), "tips")
         _wait_stable(page, 2000)
+
+        active = page.locator(_sid("ds", "dataset")).input_value()
+        assert active == "tips", (
+            f"Failed to switch the active dataset to tips (got '{active}'). "
+            f"Every downstream test depends on this."
+        )
 
     def test_t08_preview_table_visible(self, page: Page):
         """After loading a dataset, the preview table on Load tab shows data."""
@@ -462,6 +604,9 @@ class TestDataTransform:
         expect(preview).to_be_attached()
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "transform", "np.log")
+
 
 # ---------------------------------------------------------------------------
 # DATA > COMBINE
@@ -469,7 +614,6 @@ class TestDataTransform:
 
 class TestDataCombine:
     """Tests for the Data > Combine module."""
-
     def test_t16_combine_tab_loads(self, page: Page):
         """Navigate to Combine tab and verify both dataset selectors exist."""
         _nav_to(page, "Data", "Combine")
@@ -550,6 +694,9 @@ class TestExploreSummarize:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "summarize", "groupby")
+
 
 # ---------------------------------------------------------------------------
 # EXPLORE > PIVOT
@@ -557,7 +704,6 @@ class TestExploreSummarize:
 
 class TestExplorePivot:
     """Tests for the Explore > Pivot module."""
-
     def test_t20_pivot_select_and_run(self, page: Page):
         """Select row, column, value variables, create pivot, verify table."""
         _nav_to(page, "Explore", "Pivot")
@@ -586,6 +732,9 @@ class TestExplorePivot:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "pivot")
+
 
 # ---------------------------------------------------------------------------
 # EXPLORE > CROSS-TAB
@@ -593,7 +742,6 @@ class TestExplorePivot:
 
 class TestExploreCrosstab:
     """Tests for the Explore > Cross-tab module."""
-
     def test_t21_crosstab_chi_square(self, page: Page):
         """Select variables, run cross-tab, verify chi-square result + table."""
         _nav_to(page, "Explore", "Cross-tab")
@@ -625,6 +773,9 @@ class TestExploreCrosstab:
         expect(table).to_be_attached()
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "crosstab", "pd.crosstab")
+
 
 # ---------------------------------------------------------------------------
 # VISUALIZE > DISTRIBUTE
@@ -632,7 +783,6 @@ class TestExploreCrosstab:
 
 class TestVisualizeDistribute:
     """Tests for the Visualize > Distribute module."""
-
     def test_t22_histogram(self, page: Page):
         """Select a column, run, verify chart appears."""
         _nav_to(page, "Visualize", "Distribute")
@@ -661,6 +811,9 @@ class TestVisualizeDistribute:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "distribute", "sns.histplot")
+
 
 # ---------------------------------------------------------------------------
 # VISUALIZE > RELATE
@@ -668,7 +821,6 @@ class TestVisualizeDistribute:
 
 class TestVisualizeRelate:
     """Tests for the Visualize > Relate module."""
-
     def test_t23_scatter_plot(self, page: Page):
         """Select x and y, run, verify scatter plot appears."""
         _nav_to(page, "Visualize", "Relate")
@@ -695,6 +847,9 @@ class TestVisualizeRelate:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "relate", "sns.scatterplot")
+
 
 # ---------------------------------------------------------------------------
 # VISUALIZE > COMPARE
@@ -702,7 +857,6 @@ class TestVisualizeRelate:
 
 class TestVisualizeCompare:
     """Tests for the Visualize > Compare module."""
-
     def test_t24_grouped_boxplot(self, page: Page):
         """Select category and numeric, run, verify grouped plot appears."""
         _nav_to(page, "Visualize", "Compare")
@@ -729,6 +883,9 @@ class TestVisualizeCompare:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "compare")
+
 
 # ---------------------------------------------------------------------------
 # VISUALIZE > CORRELATE
@@ -736,7 +893,6 @@ class TestVisualizeCompare:
 
 class TestVisualizeCorrelate:
     """Tests for the Visualize > Correlate module."""
-
     def test_t25_correlation_matrix(self, page: Page):
         """Select numeric columns, run, verify correlation matrix appears."""
         _nav_to(page, "Visualize", "Correlate")
@@ -761,6 +917,9 @@ class TestVisualizeCorrelate:
         )
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "correlate", "sns.heatmap")
+
 
 # ---------------------------------------------------------------------------
 # ANALYZE > MEANS
@@ -768,7 +927,6 @@ class TestVisualizeCorrelate:
 
 class TestAnalyzeMeans:
     """Tests for the Analyze > Means module."""
-
     def test_t26_two_sample_ttest(self, page: Page):
         """Run a two-sample t-test and verify result, group stats, no errors."""
         _nav_to(page, "Analyze", "Means")
@@ -809,6 +967,8 @@ class TestAnalyzeMeans:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "means", "ttest_ind")
     def test_t27_one_way_anova(self, page: Page):
         """Run a one-way ANOVA and verify result renders."""
         _select_option(page, _sid("means", "test_type"), "anova")
@@ -829,6 +989,9 @@ class TestAnalyzeMeans:
         page.wait_for_selector(f"{_sid('means', 'test_result')} .alert", timeout=15_000)
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "means", "f_oneway")
+
 
 # ---------------------------------------------------------------------------
 # ANALYZE > PROPORTIONS
@@ -836,10 +999,15 @@ class TestAnalyzeMeans:
 
 class TestAnalyzeProportions:
     """Tests for the Analyze > Proportions module."""
-
     def test_t28_chi_square_test(self, page: Page):
         """Run proportions test and verify result + observed/expected tables."""
         _nav_to(page, "Analyze", "Proportions")
+        _wait_stable(page, 2000)
+
+        # row_var/col_var only exist for the independence test; the module
+        # defaults to one_prop, which renders op_var instead.  Without this the
+        # test waited for a control that never renders and never ran a chi-square.
+        _select_option(page, _sid("proportions", "test_type"), "independence")
         _wait_stable(page, 2000)
 
         page.wait_for_selector(
@@ -870,6 +1038,9 @@ class TestAnalyzeProportions:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "proportions", "crosstab")
+
 
 # ---------------------------------------------------------------------------
 # ANALYZE > CORRELATION
@@ -877,7 +1048,6 @@ class TestAnalyzeProportions:
 
 class TestAnalyzeCorrelation:
     """Tests for the Analyze > Correlation module."""
-
     def test_t29_correlation_test(self, page: Page):
         """Run correlation test and verify result with r, p, CI."""
         _nav_to(page, "Analyze", "Correlation")
@@ -905,6 +1075,9 @@ class TestAnalyzeCorrelation:
             f"Expected correlation info in result, got: {result_text[:300]}"
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "correlation", "stats.")
+
 
 # ---------------------------------------------------------------------------
 # MODEL > REGRESSION
@@ -912,7 +1085,6 @@ class TestAnalyzeCorrelation:
 
 class TestModelRegression:
     """Tests for the Model > Regression module."""
-
     def test_t30_linear_regression(self, page: Page):
         """Run linear regression and verify coefficients + VIF tables."""
         _nav_to(page, "Model", "Regression")
@@ -949,6 +1121,9 @@ class TestModelRegression:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "regression", "LinearRegression")
+
 
 # ---------------------------------------------------------------------------
 # MODEL > CLASSIFY
@@ -956,7 +1131,6 @@ class TestModelRegression:
 
 class TestModelClassify:
     """Tests for the Model > Classify module."""
-
     def test_t31_logistic_regression(self, page: Page):
         """Run logistic regression and verify accuracy is displayed."""
         _nav_to(page, "Model", "Classify")
@@ -986,6 +1160,9 @@ class TestModelClassify:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "classify", "LogisticRegression")
+
 
 # ---------------------------------------------------------------------------
 # MODEL > CLUSTER
@@ -993,7 +1170,6 @@ class TestModelClassify:
 
 class TestModelCluster:
     """Tests for the Model > Cluster module."""
-
     def test_t32_kmeans_cluster(self, page: Page):
         """Run K-means clustering and verify cluster plot/summary appears."""
         _nav_to(page, "Model", "Cluster")
@@ -1021,6 +1197,9 @@ class TestModelCluster:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "cluster", "KMeans")
+
 
 # ---------------------------------------------------------------------------
 # MODEL > REDUCE
@@ -1028,7 +1207,6 @@ class TestModelCluster:
 
 class TestModelReduce:
     """Tests for the Model > Reduce (PCA) module."""
-
     def test_t33_pca_analysis(self, page: Page):
         """Run PCA and verify scree/biplot and summary appear."""
         _nav_to(page, "Model", "Reduce")
@@ -1059,6 +1237,9 @@ class TestModelReduce:
 
         _assert_no_shiny_errors(page)
 
+        # Second oracle: the operation must also emit runnable code.
+        _assert_code(page, "reduce", "PCA")
+
 
 # ---------------------------------------------------------------------------
 # CROSS-CUTTING: DECIMALS CHANGE
@@ -1066,14 +1247,13 @@ class TestModelReduce:
 
 class TestCrossCutting:
     """Cross-cutting tests: decimals selector, global error checks."""
-
     def test_t34_change_decimals(self, page: Page):
         """Change the decimals dropdown on View tab from 4 to 2 and verify page still works."""
         _nav_to(page, "Data", "View")
         _wait_stable(page, 2000)
 
         # Decimals is now per-module, inside the View tab
-        dec_id = _sid("view", _sid("dec", "decimals"))
+        dec_id = _nested_sid("view", "dec", "decimals")
         _select_option(page, dec_id, "2")
         _wait_stable(page, 2000)
 
@@ -1086,40 +1266,45 @@ class TestCrossCutting:
         _select_option(page, dec_id, "4")
         _wait_stable(page, 1000)
 
-    def test_t35_no_errors_on_data_tabs(self, page: Page):
-        """Visit each Data sub-tab and verify no Shiny errors."""
-        for tab in ["Load", "Profile", "View", "Transform", "Combine", "Export"]:
-            _nav_to(page, "Data", tab)
-            _wait_stable(page, 1500)
-            _assert_no_shiny_errors(page)
+    def test_t35_all_tabs_open_without_errors(self, page: Page):
+        """Sweep every navbar tab and sub-tab discovered from the live DOM.
 
-    def test_t36_no_errors_on_explore_tabs(self, page: Page):
-        """Visit each Explore sub-tab and verify no Shiny errors."""
-        for tab in ["Summarize", "Pivot", "Cross-tab"]:
-            _nav_to(page, "Explore", tab)
-            _wait_stable(page, 1500)
-            _assert_no_shiny_errors(page)
+        This replaces the five hand-listed loops it grew out of.  Those lists
+        drifted: Simulate and Predict shipped without ever being added, so both
+        modules were silently exempt from the smoke sweep.  EXPECTED_TABS below
+        is a floor, not a whitelist -- it fails if a known tab disappears, while
+        a newly added tab is swept with no test change at all.
+        """
+        expected_tabs = {
+            "Data": {"Load", "Profile", "View", "Transform", "Combine", "Export"},
+            "Explore": {"Group By / Summarize", "Pivot", "Cross-tab", "Simulate"},
+            "Visualize": {"Distribute", "Relate", "Compare", "Correlate", "Timeline"},
+            "Analyze": {"Means", "Proportions", "Correlation"},
+            "Model": {"Regression", "Classify", "Evaluate", "Predict", "Cluster", "Reduce"},
+            "Report": {"Report Builder", "Notebook", "Procedure"},
+        }
 
-    def test_t37_no_errors_on_visualize_tabs(self, page: Page):
-        """Visit each Visualize sub-tab and verify no Shiny errors."""
-        for tab in ["Distribute", "Relate", "Compare", "Correlate", "Timeline"]:
-            _nav_to(page, "Visualize", tab)
-            _wait_stable(page, 1500)
-            _assert_no_shiny_errors(page)
+        discovered = _discover_nav(page)
 
-    def test_t38_no_errors_on_analyze_tabs(self, page: Page):
-        """Visit each Analyze sub-tab and verify no Shiny errors."""
-        for tab in ["Means", "Proportions", "Correlation"]:
-            _nav_to(page, "Analyze", tab)
-            _wait_stable(page, 1500)
-            _assert_no_shiny_errors(page)
+        for top, expected_subs in expected_tabs.items():
+            assert top in discovered, (
+                f"Top-level tab '{top}' not found. Discovered: {sorted(discovered)}"
+            )
+            missing = expected_subs - set(discovered[top])
+            assert not missing, (
+                f"'{top}' is missing sub-tab(s) {sorted(missing)}. "
+                f"Found: {sorted(discovered[top])}"
+            )
 
-    def test_t39_no_errors_on_model_tabs(self, page: Page):
-        """Visit each Model sub-tab and verify no Shiny errors."""
-        for tab in ["Regression", "Classify", "Evaluate", "Cluster", "Reduce"]:
-            _nav_to(page, "Model", tab)
-            _wait_stable(page, 1500)
-            _assert_no_shiny_errors(page)
+        swept = []
+        for top, subs in discovered.items():
+            for sub in subs or [None]:
+                _nav_to(page, top, sub) if sub else _nav_to(page, top)
+                _wait_stable(page, 1500)
+                _assert_no_shiny_errors(page)
+                swept.append(f"{top} > {sub}" if sub else top)
+
+        assert len(swept) >= 25, f"Expected to sweep >=25 tabs, swept {len(swept)}: {swept}"
 
     def test_t40_dataset_selector_persists(self, page: Page):
         """The active dataset remains 'tips' after navigating across all tabs."""
