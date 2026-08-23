@@ -249,7 +249,11 @@ def _normality_test(samples: np.ndarray) -> pd.DataFrame:
 
     # KS test against fitted normal
     mu, sigma = float(np.mean(samples)), float(np.std(samples, ddof=1))
-    ks_stat, ks_p = stats.kstest(samples, "norm", args=(mu, sigma))
+    # Pass a frozen distribution rather than ("norm", args=(mu, sigma)).
+    # Newer scipy resolves the "norm" string to the fast scipy.special.ndtr
+    # shortcut, which accepts no loc/scale arguments, so the args form raises
+    # TypeError there. A frozen cdf behaves identically on every version.
+    ks_stat, ks_p = stats.kstest(samples, stats.norm(loc=mu, scale=sigma).cdf)
     rows.append({
         "Test": "Kolmogorov-Smirnov (vs Normal)",
         "Statistic": float(ks_stat),

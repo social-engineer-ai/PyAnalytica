@@ -8,6 +8,24 @@ import pytest
 from pyanalytica.core.profile import UserProfile, get_api_key, get_profile
 
 
+@pytest.fixture(autouse=True)
+def clean_profile_env(monkeypatch):
+    """Unset the profile environment variables for every test in this module.
+
+    UserProfile.load() gives environment variables precedence over file
+    contents, so a real ANTHROPIC_API_KEY on the developer's machine decides
+    the outcome of the file-based tests below: they pass on a machine with no
+    key set and fail on one that has it, from identical code.  Worse, pytest
+    renders the real key into the assertion diff when they fail.
+
+    monkeypatch restores the previous values at teardown even if a test raises,
+    so this cannot leak into the rest of the session.  Tests that exercise the
+    precedence rules set the variables they need explicitly.
+    """
+    for var in ("ANTHROPIC_API_KEY", "PYANALYTICA_DECIMALS", "PYANALYTICA_THEME"):
+        monkeypatch.delenv(var, raising=False)
+
+
 # ---------------------------------------------------------------------------
 # UserProfile.load from explicit YAML files
 # ---------------------------------------------------------------------------

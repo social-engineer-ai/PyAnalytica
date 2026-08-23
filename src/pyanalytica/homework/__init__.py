@@ -13,11 +13,40 @@ from pyanalytica.homework.submission import (
     export_submission_json,
 )
 from pyanalytica.homework.schema import validate_homework
+from pyanalytica.homework.authoring import (
+    HomeworkBuildError,
+    MasterHomework,
+    MasterQuestion,
+    build,
+    build_answer_key,
+    build_student_copy,
+    load_master,
+    parse_master,
+)
+from pyanalytica.homework.regrade import (
+    AnswerKey,
+    QuestionOutcome,
+    RegradeError,
+    RegradeResult,
+    load_key,
+    parse_key,
+    regrade,
+)
 
 __all__ = [
+    "AnswerKey",
     "Homework",
+    "HomeworkBuildError",
     "HomeworkQuestion",
+    "MasterHomework",
+    "MasterQuestion",
+    "QuestionOutcome",
+    "RegradeError",
+    "RegradeResult",
     "Submission",
+    "build",
+    "build_answer_key",
+    "build_student_copy",
     "check_answer",
     "create_submission",
     "export_submission_json",
@@ -25,5 +54,10 @@ __all__ = [
     "hash_answer",
     "load_homework",
     "load_homework_from_dict",
+    "load_key",
+    "load_master",
+    "parse_key",
+    "parse_master",
+    "regrade",
     "validate_homework",
 ]

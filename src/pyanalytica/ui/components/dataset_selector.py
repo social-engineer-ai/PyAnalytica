@@ -42,7 +42,21 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
             state._change_signal()
         names = state.dataset_names()
         choices = names if names else ["(none)"]
-        ui.update_select("dataset", choices=choices)
+
+        # Preserve the user's active dataset across choice refreshes.
+        #
+        # update_select() without an explicit `selected` resets the input to
+        # the first choice.  Since dataset_names() is sorted alphabetically,
+        # any state change (a transform, loading a second file) used to snap
+        # the active dataset to whichever name sorts first.
+        #
+        # Read the current value under isolate() so this effect does not
+        # re-trigger on the update it performs itself.
+        with reactive.isolate():
+            current = input.dataset()
+        selected = current if current in choices else choices[0]
+
+        ui.update_select("dataset", choices=choices, selected=selected)
 
     @reactive.effect
     @reactive.event(input.remove_dataset)
