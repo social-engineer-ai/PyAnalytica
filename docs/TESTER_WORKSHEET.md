@@ -19,6 +19,8 @@ Follow the instructions in **INSTALL.md** exactly as written. Don't fix anything
 | A3 | Was any step confusing or unclear? Which one, and why? | |
 | A4 | Did the browser open by itself when you ran `pyanalytica`? | Yes / No |
 | A5 | What web address did it open? | http://__________ |
+| A7 | Did typing `py --version` work first time, or did the Microsoft Store open? | Worked / Store opened |
+| A8 | Did the `Set-ExecutionPolicy` step (Step 4) ask you to confirm? | Yes / No |
 
 **A6.** Copy and paste anything that appeared in red text, or that looked like an error, here:
 

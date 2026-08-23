@@ -1,0 +1,34 @@
+# Generated from hw1_tips.master.yaml -- do not edit by hand.
+# Safe to distribute: graded questions carry no answer material.
+title: HW1 - Exploring the Tips Dataset
+dataset: tips
+version: 1
+description: A short intro homework using the tips dataset.
+questions:
+- id: q1
+  text: What is the mean of the total_bill column? (round to 2 decimals)
+  type: numeric
+  points: 2
+  graded: true
+  tolerance: 0.01
+  hint: Use df['total_bill'].mean()
+- id: q2
+  text: 'Which column is categorical: (a) total_bill, (b) sex, (c) size?'
+  type: multiple_choice
+  points: 1
+  options:
+  - a
+  - b
+  - c
+  answer_hash: 3e23e8160039594a
+- id: q3
+  text: How many rows are in the dataset?
+  type: numeric
+  points: 2
+  graded: true
+  tolerance: 1.0
+- id: q4
+  text: Describe one interesting pattern you noticed.
+  type: free_response
+  points: 3
+  rubric: Award full credit for a thoughtful observation backed by data.
