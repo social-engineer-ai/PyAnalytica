@@ -1,0 +1,57 @@
+# Practice drill -- self-check only, carries no marks.
+# Answers are in plaintext on purpose: these are drills, not assessment, and
+# pretending to hide a derivable answer would only be theatre.
+title: "Tips: getting your bearings"
+dataset: tips
+description: >
+  A first pass over the tips dataset. Load it from Data > Load, then use
+  Profile, View and Summarize to answer these. Every answer is somewhere in
+  the app -- you should not need to calculate anything by hand.
+
+questions:
+  - id: rows
+    text: "How many rows does the tips dataset have?"
+    kind: numeric
+    answer: 244
+    tolerance: 1
+    hint: "Data > Load shows this as soon as the dataset loads."
+    explanation: "244 meals, one row per table served."
+
+  - id: mean_bill
+    text: "What is the mean of total_bill? (2 decimal places)"
+    kind: numeric
+    answer: 25.29
+    tolerance: 0.01
+    hint: "Data > Profile lists the mean for every numeric column."
+    explanation: >
+      About $25.29. Note this is the mean of a right-skewed column -- the
+      median is lower, which is worth knowing before you quote an average.
+
+  - id: max_bill
+    text: "What is the largest single total_bill? (2 decimal places)"
+    kind: numeric
+    answer: 50.81
+    tolerance: 0.01
+    hint: "Profile shows min and max, or sort the column in Data > View."
+
+  - id: n_days
+    text: "How many different days appear in the day column?"
+    kind: numeric
+    answer: 4
+    tolerance: 1
+    hint: "Profile counts unique values for categorical columns."
+
+  - id: busiest
+    text: "Which day has the most meals: Thur, Fri, Sat or Sun?"
+    kind: multiple_choice
+    options: ["Thur", "Fri", "Sat", "Sun"]
+    answer: "Sat"
+    hint: "Explore > Group By / Summarize, grouped by day, using count."
+    explanation: "Saturday, with 81 of the 244 meals."
+
+  - id: smokers
+    text: "How many meals were at smoking tables?"
+    kind: numeric
+    answer: 81
+    tolerance: 1
+    hint: "Group by smoker and count."

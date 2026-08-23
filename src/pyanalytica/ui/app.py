@@ -26,6 +26,7 @@ from pyanalytica.ui.modules.model import (
     mod_classify, mod_cluster, mod_evaluate, mod_predict, mod_reduce, mod_regression,
 )
 from pyanalytica.ui.modules.homework import mod_homework
+from pyanalytica.ui.modules.practice import mod_practice
 from pyanalytica.ui.modules.report import mod_notebook, mod_procedure, mod_report_builder
 from pyanalytica.ui.modules.ai import mod_assistant
 
@@ -124,6 +125,7 @@ def create_app(config: CourseConfig | None = None) -> App:
             ),
         ),
         # === HOMEWORK ===
+        ui.nav_panel("Practice", mod_practice.practice_ui("practice")),
         ui.nav_panel("Homework", mod_homework.homework_ui("homework")),
         # === REPORT ===
         ui.nav_panel("Report",
@@ -225,6 +227,7 @@ def create_app(config: CourseConfig | None = None) -> App:
         mod_reduce.reduce_server("reduce", state=state, get_current_df=current_df)
 
         # Homework module
+        mod_practice.practice_server("practice", state=state, get_current_df=current_df)
         mod_homework.homework_server("homework", state=state, get_current_df=current_df)
 
         # Report modules
