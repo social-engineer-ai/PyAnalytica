@@ -144,9 +144,28 @@ class TestUntrustedInput:
         assert r.score_dispute is True
         assert any("re-graded score stands" in w for w in r.warnings)
 
+    def test_graded_questions_do_not_trigger_a_false_dispute(self, key):
+        """An honest submission of an assignment with graded questions.
+
+        The student's app cannot score q1 (graded, ships no answer material),
+        so it reports only what it could check. Comparing that against the full
+        re-graded total would flag every honest student in the class.
+        """
+        honest = _submission({"q1": 19.79, "q2": "b", "q3": "x"})
+        # q2 (1) + q3 checkpoint (1) -- q1 is graded, so their app cannot
+        # score it and reports it as pending.
+        honest["auto_total"] = 2
+        honest["answers"][0]["correct"] = None
+        honest["answers"][0]["points_earned"] = 0
+
+        r = regrade(honest, key)
+        assert r.auto_total == 4          # instructor scores q1 too
+        assert r.comparable_total == 2    # what the app could have scored
+        assert r.score_dispute is False
+
     def test_honest_submission_raises_no_dispute(self, key):
         honest = _submission({"q1": 19.79, "q2": "b", "q3": "x"})
-        honest["auto_total"] = 4
+        honest["auto_total"] = 2   # q1 is graded; the app scores q2 + q3 only
         r = regrade(honest, key)
         assert r.score_dispute is False
 

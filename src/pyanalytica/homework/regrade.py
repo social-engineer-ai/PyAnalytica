@@ -100,16 +100,24 @@ class RegradeResult:
     grand_max: int = 0
     warnings: list[str] = field(default_factory=list)
     claimed_total: int | None = None
+    comparable_total: int = 0
 
     @property
     def score_dispute(self) -> bool:
         """True if the submission claimed a total this re-grade disagrees with.
 
-        Not proof of tampering on its own -- an assignment edited after a
-        student downloaded it produces the same signal -- but every case is
-        worth a look.
+        Compared against `comparable_total`, not `auto_total`: the student's
+        app can only score questions it holds answer material for, so a graded
+        question is always pending on their side and scored on ours. Comparing
+        against the full total would flag every honest submission.
+
+        Not proof of tampering even so -- an assignment edited after a student
+        downloaded it produces the same signal -- but worth a look.
         """
-        return self.claimed_total is not None and self.claimed_total != self.auto_total
+        return (
+            self.claimed_total is not None
+            and self.claimed_total != self.comparable_total
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +266,9 @@ def regrade(
 
     outcomes: list[QuestionOutcome] = []
     auto_total = auto_max = pending = 0
+    # Points the student's own app could have scored: everything except graded
+    # questions (which ship without answer material) and free responses.
+    comparable_total = 0
 
     for question in key.questions:
         answered = question.id in raw_answers
@@ -294,6 +305,7 @@ def regrade(
             )
             auto_total += earned
             auto_max += question.points
+            comparable_total += earned
             continue
 
         if not answered or answer_text.strip() == "":
@@ -344,6 +356,8 @@ def regrade(
         )
         auto_total += earned
         auto_max += question.points
+        if not question.graded:
+            comparable_total += earned
 
     claimed = submission.get("auto_total")
     result = RegradeResult(
@@ -358,12 +372,15 @@ def regrade(
         grand_max=key.grand_max,
         warnings=warnings,
         claimed_total=int(claimed) if isinstance(claimed, (int, float)) else None,
+        comparable_total=comparable_total,
     )
 
     if result.score_dispute:
         result.warnings.append(
-            f"Submission claimed {result.claimed_total} auto points; re-grading "
-            f"awards {auto_total}. The re-graded score stands."
+            f"Submission claimed {result.claimed_total} auto points on the "
+            f"locally-checkable questions; re-grading awards "
+            f"{comparable_total} there ({auto_total} overall). "
+            f"The re-graded score stands."
         )
 
     return result

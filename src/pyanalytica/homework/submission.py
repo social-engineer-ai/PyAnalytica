@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pyanalytica.homework.loader import Homework
 
-from pyanalytica.homework.grader import check_answer
+from pyanalytica.homework.grader import awaits_instructor, check_answer
 
 
 @dataclass
@@ -75,27 +75,28 @@ def create_submission(
         grand_max += question.points
         student_answer = answers.get(question.id)
 
+        pending = awaits_instructor(question)
+
         if student_answer is None:
             # Question not answered -- zero points, marked incorrect.
             submission_answers.append(
                 SubmissionAnswer(
                     question_id=question.id,
                     answer="",
-                    correct=False if question.type != "free_response" else None,
+                    correct=None if pending else False,
                     points_earned=0,
                     max_points=question.points,
                 )
             )
-            if question.type == "free_response":
+            if pending:
                 pending_review += question.points
             else:
                 auto_max += question.points
             continue
 
-        correct, points_earned = check_answer(question, student_answer)
-
-        if question.type == "free_response":
-            # Instructor must grade -- mark as pending.
+        if pending:
+            # Graded and free-response questions carry no local answer
+            # material, so nothing here may claim they are right or wrong.
             submission_answers.append(
                 SubmissionAnswer(
                     question_id=question.id,
@@ -107,6 +108,7 @@ def create_submission(
             )
             pending_review += question.points
         else:
+            correct, points_earned = check_answer(question, student_answer)
             submission_answers.append(
                 SubmissionAnswer(
                     question_id=question.id,

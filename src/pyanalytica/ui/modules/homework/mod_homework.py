@@ -10,7 +10,7 @@ from pyanalytica.homework.loader import (
     HomeworkQuestion,
     load_homework_from_dict,
 )
-from pyanalytica.homework.grader import check_answer
+from pyanalytica.homework.grader import awaits_instructor, check_answer
 from pyanalytica.homework.submission import (
     create_submission,
     export_submission_bytes,
@@ -28,6 +28,18 @@ def _question_input(ns_prefix: str, q: HomeworkQuestion) -> ui.TagList:
     check_id = f"check_{qid}"
     feedback_id = f"fb_{qid}"
 
+    graded = awaits_instructor(q)
+
+    badge = ui.TagList()
+    if q.graded:
+        # Say plainly that this one counts and will not be marked here, so an
+        # absent tick is not read as a wrong answer.
+        badge = ui.tags.span(
+            "Graded",
+            class_="badge bg-primary ms-2",
+            title="Scored by your instructor after you submit.",
+        )
+
     header = ui.tags.div(
         ui.tags.strong(f"Q{qid}"),
         ui.tags.span(
@@ -35,6 +47,7 @@ def _question_input(ns_prefix: str, q: HomeworkQuestion) -> ui.TagList:
             class_="text-muted",
         ),
         ui.tags.span(f"  [{q.type.replace('_', ' ')}]", class_="text-muted ms-2"),
+        badge,
         class_="mb-1",
     )
 
@@ -60,7 +73,9 @@ def _question_input(ns_prefix: str, q: HomeworkQuestion) -> ui.TagList:
     # Per-question check button (not needed for checkpoint — it IS the button)
     if q.type != "checkpoint":
         check_btn = ui.input_action_button(
-            check_id, "Check Answer", class_="btn-outline-primary btn-sm mt-1",
+            check_id,
+            "Save Answer" if graded else "Check Answer",
+            class_="btn-outline-primary btn-sm mt-1",
         )
     else:
         check_btn = ui.TagList()
@@ -281,6 +296,13 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
                     '&#9998; Recorded. Free-response answers are graded by the instructor.'
                     '</span>'
                 )
+            elif awaits_instructor(q):
+                fb[qid] = (
+                    '<span class="text-info">'
+                    '&#9998; Answer saved. This question is graded after you '
+                    'submit, so it is not checked here.'
+                    '</span>'
+                )
             elif correct:
                 fb[qid] = (
                     f'<span class="text-success">'
@@ -391,6 +413,15 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
                     '&#9998; Recorded for instructor review.'
                     '</span>'
                 )
+            elif awaits_instructor(q):
+                # correct is None here. Without this branch it falls through
+                # to the else and tells the student their answer was wrong.
+                fb[sa.question_id] = (
+                    f'<span class="text-info">'
+                    f'&#9998; Answer submitted ({sa.max_points} pts, graded by '
+                    f'your instructor).'
+                    f'</span>'
+                )
             elif q.type == "checkpoint":
                 if sa.correct:
                     fb[sa.question_id] = (
@@ -419,8 +450,15 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
                 )
 
         feedback_map.set(fb)
+        pending_note = (
+            f" {submission.pending_review} pt"
+            f"{'s' if submission.pending_review != 1 else ''} awaiting instructor grading."
+            if submission.pending_review
+            else ""
+        )
         ui.notification_show(
-            f"Submitted! Auto-graded: {submission.auto_total}/{submission.auto_max} pts",
+            f"Submitted! Auto-graded: {submission.auto_total}/{submission.auto_max} pts."
+            f"{pending_note}",
             type="message",
         )
 
