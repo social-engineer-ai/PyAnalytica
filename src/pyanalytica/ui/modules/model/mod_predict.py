@@ -11,6 +11,10 @@ from pyanalytica.model.predict import predict_from_artifact
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -50,7 +54,7 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
     def _update_models():
         state._change_signal()
         models = state.model_store.list_models()
-        ui.update_select("model_name", choices=models)
+        update_choices(input, "model_name", models)
 
     @render.ui
     def dataset_selector():

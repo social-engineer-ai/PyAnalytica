@@ -8,6 +8,10 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_datetime_columns, get_numeric_columns
 from pyanalytica.visualize.timeline import time_series
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -54,9 +58,9 @@ def timeline_server(input, output, session, state: WorkbenchState, get_current_d
             # Also include object cols that might be dates
             all_cols = list(df.columns)
             date_choices = dt_cols if dt_cols else all_cols
-            ui.update_select("date_col", choices=date_choices)
-            ui.update_select("value_col", choices=get_numeric_columns(df))
-            ui.update_select("group_by", choices=[""] + all_cols)
+            update_choices(input, "date_col", date_choices)
+            update_choices(input, "value_col", get_numeric_columns(df))
+            update_choices(input, "group_by", [""] + all_cols, allow_none=True)
 
     @render.plot
     @reactive.event(input.run_btn)

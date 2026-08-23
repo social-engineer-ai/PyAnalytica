@@ -8,6 +8,10 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.visualize.relate import hexbin, scatter
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -54,13 +58,13 @@ def relate_server(input, output, session, state: WorkbenchState, get_current_df)
         if df is not None:
             num_cols = get_numeric_columns(df)
             cat_cols = get_categorical_columns(df)
-            ui.update_select("x", choices=num_cols)
-            ui.update_select("y", choices=num_cols)
-            ui.update_select("color_by", choices=[""] + cat_cols)
-            ui.update_select("size_by", choices=[""] + num_cols)
-            ui.update_select("style_by", choices=[""] + cat_cols)
-            ui.update_select("facet_col", choices=[""] + cat_cols)
-            ui.update_select("facet_row", choices=[""] + cat_cols)
+            update_choices(input, "x", num_cols)
+            update_choices(input, "y", num_cols)
+            update_choices(input, "color_by", [""] + cat_cols, allow_none=True)
+            update_choices(input, "size_by", [""] + num_cols, allow_none=True)
+            update_choices(input, "style_by", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_col", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_row", [""] + cat_cols, allow_none=True)
 
     @render.plot
     @reactive.event(input.run_btn)

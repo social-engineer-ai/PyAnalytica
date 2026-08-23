@@ -11,6 +11,10 @@ from pyanalytica.explore.crosstab import create_crosstab
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -45,9 +49,9 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
             cat_cols = get_categorical_columns(df)
             all_cols = list(df.columns)
             choices = cat_cols if cat_cols else all_cols
-            ui.update_select("row_var", choices=choices)
+            update_choices(input, "row_var", choices)
             col_choices = {"": "(None)", **{c: c for c in choices}}
-            ui.update_select("col_var", choices=col_choices)
+            update_choices(input, "col_var", col_choices)
 
     @reactive.calc
     @reactive.event(input.run_btn)

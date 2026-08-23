@@ -8,6 +8,10 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.visualize.correlate import correlation_matrix, pair_plot
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -47,7 +51,7 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
     def _update_cols():
         df = get_current_df()
         if df is not None:
-            ui.update_select("cols", choices=get_numeric_columns(df))
+            update_multi_choices(input, "cols", get_numeric_columns(df))
 
     @render.plot
     @reactive.event(input.run_btn)

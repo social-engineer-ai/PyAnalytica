@@ -12,6 +12,10 @@ from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.model.classify import decision_tree, logistic_regression, random_forest
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -50,8 +54,8 @@ def classify_server(input, output, session, state: WorkbenchState, get_current_d
         if df is not None:
             cats = get_categorical_columns(df)
             nums = get_numeric_columns(df)
-            ui.update_select("target", choices=cats + nums)
-            ui.update_select("features", choices=nums)
+            update_choices(input, "target", cats + nums)
+            update_multi_choices(input, "features", nums)
 
     @render.ui
     def model_options():

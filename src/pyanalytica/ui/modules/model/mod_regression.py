@@ -14,6 +14,10 @@ from pyanalytica.model.regression import linear_regression
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -53,8 +57,8 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
         df = get_current_df()
         if df is not None:
             cols = get_numeric_columns(df)
-            ui.update_select("target", choices=cols)
-            ui.update_select("features", choices=cols)
+            update_choices(input, "target", cols)
+            update_choices(input, "features", cols)
 
     @reactive.effect
     @reactive.event(input.run_btn)

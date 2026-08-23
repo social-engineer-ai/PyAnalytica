@@ -9,6 +9,10 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import ColumnType, classify_column, get_categorical_columns
 from pyanalytica.visualize.distribute import bar_chart, boxplot, histogram, violin
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -52,10 +56,10 @@ def distribute_server(input, output, session, state: WorkbenchState, get_current
         df = get_current_df()
         if df is not None:
             cat_cols = get_categorical_columns(df)
-            ui.update_select("col", choices=list(df.columns))
-            ui.update_select("group_by", choices=[""] + cat_cols)
-            ui.update_select("facet_col", choices=[""] + cat_cols)
-            ui.update_select("facet_row", choices=[""] + cat_cols)
+            update_choices(input, "col", list(df.columns))
+            update_choices(input, "group_by", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_col", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_row", [""] + cat_cols, allow_none=True)
 
     @render.ui
     def chart_options():

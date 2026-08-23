@@ -170,6 +170,95 @@ def _assert_no_shiny_errors(page: Page) -> None:
         pytest.fail(f"Found {count} Shiny output error(s): {texts}")
 
 
+# ---------------------------------------------------------------------------
+# Output oracles
+#
+# The suite used to check that an element existed. A human tester found three
+# things that pass that bar and are still broken:
+#
+#   * An exception rendered as ordinary text inside the output, because the
+#     module caught it and returned a string. `.shiny-output-error` never
+#     appears, so _assert_no_shiny_errors sees nothing wrong.
+#   * An output element that exists and is empty -- Correlate with a single
+#     column selected produced no chart, no message, nothing.
+#   * A chart or table that renders for one column type and crashes for
+#     another. Pivoting tips by `sex` works; by `size` it did not.
+#
+# These three helpers close those gaps.
+# ---------------------------------------------------------------------------
+
+# Text that means an exception reached the screen, whatever it is wrapped in.
+_ERROR_TEXT = (
+    "traceback", "has no attribute", "keyerror", "valueerror", "typeerror",
+    "indexerror", "attributeerror", "not in index", "object is not",
+    "unexpected keyword", "does not support", "cannot be", "nonetype",
+)
+
+
+def _assert_no_error_text(page: Page, selector: str) -> None:
+    """Fail if an output region is displaying what looks like an exception.
+
+    Modules that catch their own exceptions and return the message as text
+    produce no .shiny-output-error, so the older check passes while the
+    student is looking at a stack-trace fragment.
+    """
+    region = page.locator(selector)
+    if region.count() == 0:
+        return
+    text = region.first.inner_text().strip().lower()
+    for marker in _ERROR_TEXT:
+        if marker in text:
+            pytest.fail(
+                f"{selector} is showing an error message rather than output: "
+                f"{' '.join(region.first.inner_text().split())[:160]}"
+            )
+
+
+def _assert_output_has_content(page: Page, selector: str, *, kind: str = "any") -> None:
+    """Fail unless the output actually shows something.
+
+    *kind* is "table", "image", or "any". An element that exists but renders
+    nothing is the failure mode `to_be_attached()` cannot see.
+    """
+    region = page.locator(selector)
+    expect(region).to_be_attached()
+    _assert_no_error_text(page, selector)
+
+    tables = region.locator("table, .shiny-data-grid")
+    images = region.locator("img")
+    text = region.first.inner_text().strip() if region.first.is_visible() else ""
+
+    if kind == "table":
+        if tables.count() == 0:
+            pytest.fail(f"{selector}: expected a table, found none (text: {text[:120]!r})")
+        return
+    if kind == "image":
+        if images.count() == 0:
+            pytest.fail(f"{selector}: expected a chart, found none (text: {text[:120]!r})")
+        box = images.first.bounding_box()
+        if box and (box["width"] < 50 or box["height"] < 50):
+            pytest.fail(f"{selector}: chart rendered at {box['width']}x{box['height']}")
+        return
+
+    if tables.count() == 0 and images.count() == 0 and not text:
+        pytest.fail(f"{selector}: element exists but shows nothing at all")
+
+
+def _assert_choices_include(page: Page, selector: str, expected: list[str]) -> None:
+    """Fail if a dropdown is missing options a student would look for.
+
+    Cross-tab offered no way to pick `Survived`, because a 0/1 integer column
+    classifies as numeric and the categorical filter drops it. Nothing errored;
+    the option simply was not there.
+    """
+    options = [o.strip() for o in page.locator(f"{selector} option").all_inner_texts()]
+    missing = [want for want in expected if want not in options]
+    if missing:
+        pytest.fail(
+            f"{selector} is missing option(s) {missing}. Offered: {options[:12]}"
+        )
+
+
 def _wait_stable(page: Page, ms: int = 2000) -> None:
     """Wait for Shiny reactivity to settle."""
     time.sleep(ms / 1000)

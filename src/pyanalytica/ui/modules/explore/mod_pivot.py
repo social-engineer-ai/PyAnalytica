@@ -10,6 +10,10 @@ from pyanalytica.explore.pivot import create_pivot_table
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -44,10 +48,10 @@ def pivot_server(input, output, session, state: WorkbenchState, get_current_df):
         df = get_current_df()
         if df is not None:
             cols = list(df.columns)
-            ui.update_select("index", choices=cols)
+            update_choices(input, "index", cols)
             col_choices = {"": "(None)", **{c: c for c in cols}}
-            ui.update_select("columns", choices=col_choices)
-            ui.update_select("values", choices=cols)
+            update_choices(input, "columns", col_choices)
+            update_choices(input, "values", cols)
 
     @reactive.calc
     @reactive.event(input.run_btn)

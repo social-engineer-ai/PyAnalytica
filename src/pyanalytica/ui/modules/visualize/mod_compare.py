@@ -8,6 +8,10 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_categorical_columns, get_numeric_columns
 from pyanalytica.visualize.compare import bar_of_means, grouped_boxplot, grouped_violin, strip_plot
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -50,11 +54,11 @@ def compare_server(input, output, session, state: WorkbenchState, get_current_df
         df = get_current_df()
         if df is not None:
             cat_cols = get_categorical_columns(df)
-            ui.update_select("x_cat", choices=cat_cols)
-            ui.update_select("y_num", choices=get_numeric_columns(df))
-            ui.update_select("hue", choices=[""] + cat_cols)
-            ui.update_select("facet_col", choices=[""] + cat_cols)
-            ui.update_select("facet_row", choices=[""] + cat_cols)
+            update_choices(input, "x_cat", cat_cols)
+            update_choices(input, "y_num", get_numeric_columns(df))
+            update_choices(input, "hue", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_col", [""] + cat_cols, allow_none=True)
+            update_choices(input, "facet_row", [""] + cat_cols, allow_none=True)
 
     @render.plot
     @reactive.event(input.run_btn)

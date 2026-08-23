@@ -11,6 +11,10 @@ from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 from datetime import datetime
 
@@ -64,8 +68,8 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
         df = get_current_df()
         if df is not None:
             cols = list(df.columns)
-            ui.update_select("filter_col", choices=cols)
-            ui.update_select("sort_col", choices=[""] + cols)
+            update_choices(input, "filter_col", cols)
+            update_choices(input, "sort_col", [""] + cols, allow_none=True)
 
     @reactive.effect
     @reactive.event(input.add_filter)

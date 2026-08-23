@@ -36,6 +36,7 @@ class WorkbenchState:
 
     def __init__(self) -> None:
         self.datasets: dict[str, pd.DataFrame] = {}
+        self.last_loaded: str | None = None
         self.originals: dict[str, pd.DataFrame] = {}
         self._history_stack: list[tuple[str, pd.DataFrame]] = []  # For undo
         self.history: list[Operation] = []
@@ -86,6 +87,10 @@ class WorkbenchState:
 
     def load(self, name: str, df: pd.DataFrame) -> None:
         """Load a new dataset into the store."""
+        # Remembered so the selector can switch to it. Inferring "which name
+        # is new" from the choice list fails when a student reloads a dataset
+        # that is already there -- they still expect to land on it.
+        self.last_loaded = name
         self.datasets[name] = df
         self.originals[name] = df.copy()
         self.history.append(Operation(

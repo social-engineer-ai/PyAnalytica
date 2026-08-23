@@ -13,6 +13,10 @@ from pyanalytica.analyze.proportions import (
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -54,12 +58,12 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
         if df is not None:
             cats = get_categorical_columns(df)
             choices = cats if cats else list(df.columns)
-            ui.update_select("row_var", choices=choices)
-            ui.update_select("col_var", choices=choices)
-            ui.update_select("gof_var", choices=choices)
-            ui.update_select("op_var", choices=choices)
-            ui.update_select("tp_var", choices=choices)
-            ui.update_select("tp_group", choices=choices)
+            update_choices(input, "row_var", choices)
+            update_choices(input, "col_var", choices)
+            update_choices(input, "gof_var", choices)
+            update_choices(input, "op_var", choices)
+            update_choices(input, "tp_var", choices)
+            update_choices(input, "tp_group", choices)
 
     @render.ui
     def test_controls():

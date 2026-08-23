@@ -35,6 +35,10 @@ def dataset_selector_ui():
 def dataset_selector_server(input, output, session, state: WorkbenchState):
     """Server logic for dataset selector. Returns reactive selected name."""
 
+    # Which dataset names we have already offered, so a newly loaded one can be
+    # told apart from a list that merely refreshed.
+    known_names: reactive.Value[set[str]] = reactive.value(set())
+
     @reactive.effect
     def _update_choices():
         # Read the change signal to create a reactive dependency
@@ -43,18 +47,40 @@ def dataset_selector_server(input, output, session, state: WorkbenchState):
         names = state.dataset_names()
         choices = names if names else ["(none)"]
 
-        # Preserve the user's active dataset across choice refreshes.
+        # Two different situations reach this effect, and they want opposite
+        # things:
         #
-        # update_select() without an explicit `selected` resets the input to
-        # the first choice.  Since dataset_names() is sorted alphabetically,
-        # any state change (a transform, loading a second file) used to snap
-        # the active dataset to whichever name sorts first.
+        #   * The choice list merely refreshed (a transform, a rename). Keep
+        #     the user where they were. Passing no `selected` resets the input
+        #     to the first choice, and dataset_names() is sorted, so this used
+        #     to snap the active dataset to whichever name sorts first and move
+        #     a student's work somewhere they did not ask for.
+        #
+        #   * A dataset was just loaded. Switch to it -- that is what loading
+        #     means. Fixing only the first case left a tester loading a file
+        #     and then hunting for the dropdown to see it.
         #
         # Read the current value under isolate() so this effect does not
         # re-trigger on the update it performs itself.
         with reactive.isolate():
             current = input.dataset()
-        selected = current if current in choices else choices[0]
+            already_seen = set(known_names())
+
+        arrived = [name for name in names if name not in already_seen]
+        known_names.set(set(names))
+
+        # A dataset the user just loaded wins, whether or not it is new to the
+        # list: reloading one that is already there should still take you to
+        # it. Then a genuinely new name. Then whatever was already selected.
+        just_loaded = getattr(state, "last_loaded", None)
+        if just_loaded and just_loaded in names and just_loaded != current:
+            selected = just_loaded
+        elif arrived:
+            selected = arrived[-1]
+        elif current in choices:
+            selected = current
+        else:
+            selected = choices[0]
 
         ui.update_select("dataset", choices=choices, selected=selected)
 

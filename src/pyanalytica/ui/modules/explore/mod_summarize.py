@@ -11,6 +11,10 @@ from pyanalytica.explore.summarize import group_summarize
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 
 @module.ui
@@ -44,8 +48,8 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
     def _update_cols():
         df = get_current_df()
         if df is not None:
-            ui.update_select("group_cols", choices=list(df.columns))
-            ui.update_select("value_cols", choices=get_numeric_columns(df))
+            update_multi_choices(input, "group_cols", list(df.columns))
+            update_multi_choices(input, "value_cols", get_numeric_columns(df))
 
     @reactive.calc
     @reactive.event(input.run_btn)

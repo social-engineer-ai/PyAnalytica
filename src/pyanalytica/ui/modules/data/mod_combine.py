@@ -7,6 +7,10 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.combine import detect_overlapping_columns, merge_dataframes
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.selects import (
+    update_choices,
+    update_multi_choices,
+)
 
 from datetime import datetime
 
@@ -42,8 +46,8 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
         if state._change_signal is not None:
             state._change_signal()
         names = state.dataset_names()
-        ui.update_select("left", choices=names)
-        ui.update_select("right", choices=names)
+        update_choices(input, "left", names)
+        update_choices(input, "right", names)
 
     @reactive.effect
     def _update_keys():
@@ -53,7 +57,7 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
             left_cols = set(state.get(left_name).columns)
             right_cols = set(state.get(right_name).columns)
             common = sorted(left_cols & right_cols)
-            ui.update_select("join_key", choices=common)
+            update_choices(input, "join_key", common)
 
     @reactive.calc
     def _overlap_info():
