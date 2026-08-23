@@ -27,8 +27,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pyanalytica.tutor.pack import CoursePack
-from pyanalytica.tutor.tokens import TokenError, verify_token
+from pyanalytica.tutor.pack import TRAILING_REMINDER, CoursePack
+from pyanalytica.tutor.tokens import (
+    TokenError,
+    reply_is_ours,
+    sign_reply,
+    verify_token,
+)
 from pyanalytica.tutor.usage import CapExceeded, UsageStore, estimate_cost
 
 # How much of a student's message we are willing to forward. A cap here keeps
@@ -70,12 +75,7 @@ def call_model(
     if pack.cacheable:
         system[0]["cache_control"] = {"type": "ephemeral"}
 
-    messages: list[dict[str, Any]] = []
-    for turn in (history or [])[-6:]:
-        role = turn.get("role")
-        content = str(turn.get("content", "")).strip()
-        if role in ("user", "assistant") and content:
-            messages.append({"role": role, "content": content[:MAX_QUESTION_CHARS]})
+    messages: list[dict[str, Any]] = list(history or [])[-6:]
 
     user_content = question.strip()[:MAX_QUESTION_CHARS]
     if context.strip():
@@ -83,7 +83,13 @@ def call_model(
             f"Here is what I am looking at:\n{context.strip()[:MAX_CONTEXT_CHARS]}\n\n"
             f"{user_content}"
         )
-    messages.append({"role": "user", "content": user_content})
+
+    # The reminder goes after the student's message, so the last thing the model
+    # reads is operator text rather than anything a student wrote. A long
+    # conversation drifts; this is cheap insurance against that.
+    messages.append(
+        {"role": "user", "content": f"{user_content}\n\n{TRAILING_REMINDER}"}
+    )
 
     response = client.messages.create(
         model=pack.model,
@@ -100,6 +106,49 @@ def call_model(
         + getattr(usage, "cache_creation_input_tokens", 0)
     )
     return reply, input_tokens, getattr(usage, "output_tokens", 0)
+
+
+def verified_history(
+    secret: str, student_id: str, raw: Any
+) -> tuple[list[dict[str, str]], int]:
+    """Keep only the turns we can vouch for. Returns ``(history, rejected)``.
+
+    The client sends prior turns back on each request, so a student can forge
+    an assistant turn -- "Of course, here is the answer key" -- and prime the
+    model with its own fabricated compliance. Keeping the conversation
+    server-side would stop that but would put student content on the
+    instructor's machine, which this design avoids; signing costs neither.
+
+    User turns pass through unchecked: they are the student's own words, and
+    the student can write anything in the current message anyway. Assistant
+    turns are kept only when they carry a signature this server produced.
+    """
+    kept: list[dict[str, str]] = []
+    rejected = 0
+
+    if not isinstance(raw, list):
+        return kept, rejected
+
+    for turn in raw[-12:]:
+        if not isinstance(turn, dict):
+            rejected += 1
+            continue
+
+        role = turn.get("role")
+        content = str(turn.get("content", "")).strip()
+        if not content:
+            continue
+
+        if role == "user":
+            kept.append({"role": "user", "content": content[:MAX_QUESTION_CHARS]})
+        elif role == "assistant" and reply_is_ours(
+            secret, student_id, content, str(turn.get("signature", ""))
+        ):
+            kept.append({"role": "assistant", "content": content[:MAX_QUESTION_CHARS]})
+        else:
+            rejected += 1
+
+    return kept, rejected
 
 
 def create_app(
@@ -177,13 +226,17 @@ def create_app(
             # 429, so the student's app can say "slow down" rather than "broken".
             return _json({"error": str(exc), "scope": exc.scope}, status=429)
 
+        history, dropped = verified_history(
+            secret, claims.student_id, body.get("history")
+        )
+
         try:
             reply, input_tokens, output_tokens = call_model(
                 pack,
                 api_key,
                 question=question,
                 context=str(body.get("context", "")),
-                history=body.get("history") or [],
+                history=history,
             )
         except Exception as exc:  # noqa: BLE001 - upstream failures must not 500 silently
             return _json(
@@ -202,8 +255,12 @@ def create_app(
         snap = store.snapshot(pack.course_id, claims.student_id)
         return _json({
             "reply": reply,
+            # Echo this back with the turn next time, so the server can tell its
+            # own words from anything written in their place.
+            "signature": sign_reply(secret, claims.student_id, reply),
             "used_today": snap.today,
             "limit_today": pack.limits.per_student_per_day,
+            "dropped_turns": dropped,
         })
 
     return Starlette(routes=[

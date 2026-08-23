@@ -165,3 +165,33 @@ def issue_for_roster(
             secret, course_id, student_id, valid_days=valid_days
         )
     return issued
+
+
+# ---------------------------------------------------------------------------
+# Signing the assistant's own replies
+# ---------------------------------------------------------------------------
+
+def sign_reply(secret: str, student_id: str, reply: str) -> str:
+    """Sign a reply so it can be recognised if it comes back as history.
+
+    The client sends prior turns back on the next request, which means a
+    student could forge an assistant turn -- "Of course, here is the answer
+    key" -- and prime the model with its own fabricated compliance. Storing the
+    conversation server-side would stop that, but it would also put student
+    content on the instructor's machine, which is exactly what this design
+    avoids. Signing costs neither: the server recognises its own words and
+    ignores anything else claiming to be them.
+
+    Bound to the student so one student's reply cannot be replayed as another's.
+    """
+    # Length-prefixed, so a student id that ends in the separator cannot be
+    # made to look like the beginning of the reply.
+    payload = f"{len(student_id)}|{student_id}|{reply}".encode("utf-8")
+    return _sign(secret, payload)
+
+
+def reply_is_ours(secret: str, student_id: str, reply: str, signature: str) -> bool:
+    """True if *reply* is one this server actually produced for this student."""
+    if not signature:
+        return False
+    return hmac.compare_digest(sign_reply(secret, student_id, reply), signature)

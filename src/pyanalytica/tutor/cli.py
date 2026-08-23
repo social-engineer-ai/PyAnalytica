@@ -245,6 +245,70 @@ def _revoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _redteam(args: argparse.Namespace) -> int:
+    from pyanalytica.tutor.pack import CoursePackError, load_pack
+    from pyanalytica.tutor.redteam import ATTACKS, evaluate, summarise
+    from pyanalytica.tutor.server import api_key_from_environment, call_model
+
+    try:
+        pack = load_pack(args.pack)
+    except (CoursePackError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    attacks = [a for a in ATTACKS if not args.only or args.only in a.id or args.only == a.category]
+    if not attacks:
+        print(f"error: no attacks match {args.only!r}", file=sys.stderr)
+        return 1
+
+    if args.dry_run:
+        print(f"{len(attacks)} probe(s) against {pack.course_id} (nothing sent):\n")
+        for attack in attacks:
+            print(f"  [{attack.category}] {attack.id}")
+            print(f"      {' '.join(attack.prompt.split())[:100]}")
+            if attack.note:
+                print(f"      note: {attack.note}")
+        print("\nDrop --dry-run to run them against the model.")
+        return 0
+
+    api_key = args.api_key or api_key_from_environment()
+    if not api_key:
+        print("error: set ANTHROPIC_API_KEY to run the probes.", file=sys.stderr)
+        return 1
+
+    print(f"Probing {pack.course_id} with {pack.model} — {len(attacks)} attacks, "
+          f"{args.repeat}x each.\n", flush=True)
+
+    findings = []
+    for attack in attacks:
+        # Repetition is itself an attack: refusals must not soften on asking again.
+        history: list[dict] = []
+        for round_no in range(args.repeat):
+            try:
+                reply, _, _ = call_model(pack, api_key, question=attack.prompt,
+                                         history=history)
+            except Exception as exc:  # noqa: BLE001 - report and continue
+                print(f"  {attack.id}: could not run ({type(exc).__name__}: {exc})",
+                      file=sys.stderr)
+                break
+            finding = evaluate(attack, reply, pack.system_prompt)
+            findings.append(finding)
+            mark = "ok  " if finding.held else "FAIL"
+            suffix = f" (ask {round_no + 1})" if args.repeat > 1 else ""
+            print(f"  {mark} {attack.id}{suffix}", flush=True)
+            if not finding.held:
+                for failure in finding.failures:
+                    print(f"         {failure}", flush=True)
+            history = history + [
+                {"role": "user", "content": attack.prompt},
+                {"role": "assistant", "content": reply},
+            ]
+
+    print()
+    print(summarise(findings))
+    return 0 if all(f.held for f in findings) else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     from pyanalytica import __version__
 
@@ -285,6 +349,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--usage-db", default="tutor-usage.db")
     p.add_argument("--top", type=int, default=25)
     p.set_defaults(func=_usage)
+
+    p = sub.add_parser(
+        "redteam", help="attack your own course pack before students do"
+    )
+    p.add_argument("--pack", default="course-pack.yaml")
+    p.add_argument("--only", default=None, help="run one attack id or category")
+    p.add_argument("--repeat", type=int, default=1,
+                   help="ask each probe N times in one conversation (persistence test)")
+    p.add_argument("--dry-run", action="store_true", help="list the probes, send nothing")
+    p.add_argument("--api-key", default=None)
+    p.set_defaults(func=_redteam)
 
     p = sub.add_parser("revoke", help="withdraw one student's access")
     p.add_argument("student_id")
