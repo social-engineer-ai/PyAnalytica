@@ -44,7 +44,7 @@ After the last command your prompt starts with `(.venv)`. **That prefix means th
 ### Step 5 — Install PyAnalytica
 
 ```powershell
-pip install pyanalytica==0.5.0
+pip install pyanalytica==0.5.1
 ```
 
 This downloads roughly 100 MB and takes a few minutes.
@@ -55,13 +55,15 @@ This downloads roughly 100 MB and takes a few minutes.
 pyanalytica
 ```
 
-You'll see a line like:
+Your browser opens automatically. You'll also see this in the window:
 
 ```
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+PyAnalytica is starting at http://127.0.0.1:8000
+Open that address in your browser if it does not open by itself.
+Press Ctrl+C in this window to stop.
 ```
 
-**Now open your web browser and go to http://127.0.0.1:8000** — the app does not open the browser for you.
+If the browser does not open, go to the address shown and open it yourself.
 
 To stop the app, click back on the PowerShell window and press **Ctrl+C**.
 
@@ -102,7 +104,7 @@ After the last command your prompt starts with `(.venv)`. That prefix means the 
 ### Step 5 — Install PyAnalytica
 
 ```bash
-pip install pyanalytica==0.5.0
+pip install pyanalytica==0.5.1
 ```
 
 This downloads roughly 100 MB and takes a few minutes.
@@ -113,13 +115,15 @@ This downloads roughly 100 MB and takes a few minutes.
 pyanalytica
 ```
 
-You'll see a line like:
+Your browser opens automatically. You'll also see this in the window:
 
 ```
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+PyAnalytica is starting at http://127.0.0.1:8000
+Open that address in your browser if it does not open by itself.
+Press Ctrl+C in this window to stop.
 ```
 
-**Now open your web browser and go to http://127.0.0.1:8000** — the app does not open the browser for you.
+If the browser does not open, go to the address shown and open it yourself.
 
 To stop the app, click back on the Terminal window and press **Control+C**.
 
@@ -145,7 +149,7 @@ source .venv/bin/activate
 pyanalytica
 ```
 
-Then open http://127.0.0.1:8000.
+Your browser opens automatically each time.
 
 ---
 
@@ -188,25 +192,23 @@ Your virtual environment is not active — your prompt is missing the `(.venv)` 
 
 **Fix:** `cd` back into your `pyanalytica` folder and run the activate command from the section above.
 
-### "Address already in use" / the page won't load
+### The app started on a strange port number
 
-PyAnalytica is probably already running in another window.
+If you see `Port 8000 was busy, using 61699 instead.`, that is normal and
+nothing is wrong — PyAnalytica was already running in another window, so this
+copy moved to a free port. Use whichever address it printed.
 
-**Fix:** find the other terminal window and press Ctrl+C.
-
-If you cannot find it, start on a different port instead. Note that
-`pyanalytica --port 8001` does **not** work — the shortcut command ignores
-options — so use this longer form:
+If you want a specific port, ask for one:
 
 ```
-python -m shiny run pyanalytica.ui.app:app --port 8001
+pyanalytica --port 8001
 ```
-
-Then open http://127.0.0.1:8001 instead.
 
 ### The browser shows "can't reach this page"
 
-Check the terminal window. If it is *not* showing the "Uvicorn running" line, the app has stopped — start it again. If it is showing that line, make sure you typed the address exactly: `http://127.0.0.1:8000` (not `https`).
+Check the terminal window. If it is *not* showing the "PyAnalytica is starting"
+banner, the app has stopped — start it again. If it is showing that banner,
+use the exact address printed there, and note it is `http`, not `https`.
 
 ---
 
