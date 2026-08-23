@@ -22,6 +22,10 @@ class ProcedureStep:
     enabled: bool = True
     user_comment: str = ""
     dataset: str = ""  # Which dataset this step operates on
+    # When the step ran. Recorded because a homework submission carries the
+    # procedure as evidence of the work, and "in what order, how far apart"
+    # is part of what makes it evidence.
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
 
 @dataclass
@@ -155,6 +159,7 @@ class ProcedureRecorder:
                 enabled=s.get("enabled", True),
                 user_comment=s.get("user_comment", ""),
                 dataset=s.get("dataset", ""),
+                timestamp=s.get("timestamp", ""),
             ))
         return Procedure(
             name=data.get("name", ""),

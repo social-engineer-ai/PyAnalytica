@@ -1,94 +1,77 @@
-"""Homework module — load YAML assignments, answer questions, get feedback."""
+"""Homework module — read the assignment, answer it, export the submission.
+
+Nothing here marks anything. An assignment ships with no answer material, so
+there is nothing to mark against; the instructor marks the collected files.
+What this module does instead is show the instructions, record the work, and
+produce one file to upload.
+
+Self-checking with instant feedback is the Practice tab, a separate feature
+whose drills carry no marks.
+"""
 
 from __future__ import annotations
 
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
+from pyanalytica.homework.export_html import export_submission_html_bytes
 from pyanalytica.homework.loader import (
     Homework,
     HomeworkQuestion,
     load_homework_from_dict,
 )
-from pyanalytica.homework.grader import awaits_instructor, check_answer
-from pyanalytica.homework.submission import (
-    create_submission,
-    export_submission_bytes,
-)
+from pyanalytica.homework.submission import create_submission
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _question_input(ns_prefix: str, q: HomeworkQuestion) -> ui.TagList:
-    """Build the appropriate Shiny input widget for a single question."""
-    qid = q.id
-    input_id = f"ans_{qid}"
-    check_id = f"check_{qid}"
-    feedback_id = f"fb_{qid}"
-
-    graded = awaits_instructor(q)
-
-    badge = ui.TagList()
-    if q.graded:
-        # Say plainly that this one counts and will not be marked here, so an
-        # absent tick is not read as a wrong answer.
-        badge = ui.tags.span(
-            "Graded",
-            class_="badge bg-primary ms-2",
-            title="Scored by your instructor after you submit.",
-        )
+def _question_input(q: HomeworkQuestion) -> ui.TagList:
+    """Build the answer widget for one question."""
+    input_id = f"ans_{q.id}"
 
     header = ui.tags.div(
-        ui.tags.strong(f"Q{qid}"),
+        ui.tags.strong(f"Q{q.id}"),
         ui.tags.span(
-            f" ({q.points} pt{'s' if q.points != 1 else ''})",
-            class_="text-muted",
+            f" ({q.points} pt{'s' if q.points != 1 else ''})", class_="text-muted"
         ),
         ui.tags.span(f"  [{q.type.replace('_', ' ')}]", class_="text-muted ms-2"),
-        badge,
         class_="mb-1",
     )
-
-    question_text = ui.tags.p(q.text, class_="mb-2")
 
     if q.type == "numeric":
         widget = ui.input_numeric(input_id, label="Your answer:", value=None)
     elif q.type == "multiple_choice":
-        options = q.options or []
-        choices = {opt: opt for opt in options}
-        widget = ui.input_radio_buttons(input_id, label="Select one:", choices=choices)
-    elif q.type == "checkpoint":
-        widget = ui.input_action_button(
-            input_id, "Mark Complete", class_="btn-outline-success btn-sm",
+        widget = ui.input_radio_buttons(
+            input_id, label="Select one:", choices={o: o for o in (q.options or [])}
         )
+    elif q.type == "checkpoint":
+        widget = ui.input_checkbox(input_id, "I have completed this step")
     elif q.type == "free_response":
         widget = ui.input_text_area(
-            input_id, label="Your response:", rows=4, placeholder="Type your answer here...",
+            input_id, label="Your response:", rows=4,
+            placeholder="Type your answer here...",
         )
     else:
         widget = ui.p(f"Unsupported question type: {q.type}", class_="text-danger")
 
-    # Per-question check button (not needed for checkpoint — it IS the button)
-    if q.type != "checkpoint":
-        check_btn = ui.input_action_button(
-            check_id,
-            "Save Answer" if graded else "Check Answer",
-            class_="btn-outline-primary btn-sm mt-1",
+    hint = (
+        ui.tags.details(
+            ui.tags.summary("Hint", class_="text-muted small"),
+            ui.tags.p(q.hint, class_="small text-muted mt-1"),
+            class_="mt-1",
         )
-    else:
-        check_btn = ui.TagList()
-
-    feedback_area = ui.output_ui(feedback_id)
+        if q.hint
+        else ui.TagList()
+    )
 
     return ui.TagList(
         ui.tags.div(
             header,
-            question_text,
+            ui.tags.p(q.text, class_="mb-2"),
             widget,
-            check_btn,
-            feedback_area,
+            hint,
             ui.tags.hr(),
             class_="mb-3",
         )
@@ -103,42 +86,33 @@ def _question_input(ns_prefix: str, q: HomeworkQuestion) -> ui.TagList:
 def homework_ui():
     return ui.layout_sidebar(
         ui.sidebar(
-            ui.h5("Homework Setup"),
-            ui.input_file(
-                "yaml_upload", "Upload YAML File",
-                accept=[".yaml", ".yml"],
-            ),
+            ui.h5("Assignment"),
+            ui.input_file("yaml_upload", "Open assignment file", accept=[".yaml", ".yml"]),
             ui.tags.div(
                 ui.tags.details(
-                    ui.tags.summary("Or paste YAML content"),
+                    ui.tags.summary("Or paste it"),
                     ui.input_text_area(
-                        "yaml_paste", label=None,
-                        rows=8, placeholder="Paste homework YAML here...",
+                        "yaml_paste", label=None, rows=8,
+                        placeholder="Paste the assignment YAML here...",
                     ),
                     ui.input_action_button(
-                        "load_pasted", "Load Pasted YAML",
-                        class_="btn-outline-secondary btn-sm mt-1",
+                        "load_pasted", "Load", class_="btn-outline-secondary btn-sm mt-1"
                     ),
                 ),
                 class_="mt-2",
             ),
             ui.tags.hr(),
-            ui.input_text("student_name", "Student Name", placeholder="Your name"),
-            ui.tags.hr(),
-            ui.input_action_button(
-                "submit_all", "Submit All Answers",
+            ui.input_text("student_name", "Your name", placeholder="First Last"),
+            ui.download_button(
+                "download_submission", "Download submission",
                 class_="btn-success w-100 mt-2",
             ),
-            ui.download_button(
-                "download_submission", "Download Submission",
-                class_="btn-primary w-100 mt-2",
-            ),
+            ui.output_ui("submit_hint"),
             width=320,
         ),
-        # --- Main panel ---
         ui.output_ui("hw_header"),
         ui.output_ui("questions_panel"),
-        ui.output_ui("submission_summary"),
+        ui.output_ui("work_summary"),
     )
 
 
@@ -148,14 +122,29 @@ def homework_ui():
 
 @module.server
 def homework_server(input, output, session, state: WorkbenchState, get_current_df):
-    # Reactive values
     hw: reactive.Value[Homework | None] = reactive.value(None)
-    feedback_map: reactive.Value[dict[str, str]] = reactive.value({})
-    last_submission = reactive.value(None)
+
+    def _accept(homework: Homework) -> None:
+        """Adopt a freshly loaded assignment and start recording the work.
+
+        Recording starts here rather than waiting for the student to press
+        anything: the work log is the point of the submission, and a student
+        who forgets to switch it on hands in an empty one.
+        """
+        hw.set(homework)
+        recorder = getattr(state, "procedure_recorder", None)
+        if recorder is not None and not recorder.is_recording():
+            recorder.start_recording()
+        ui.notification_show(
+            f"Opened: {homework.title} ({len(homework.questions)} questions). "
+            f"Your work is being recorded and will be included in your submission.",
+            type="message",
+        )
 
     # ------------------------------------------------------------------
-    # Loading homework from file upload
+    # Loading an assignment
     # ------------------------------------------------------------------
+
     @reactive.effect
     @reactive.event(input.yaml_upload)
     def _load_from_file():
@@ -163,30 +152,16 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
         req(file_info)
         try:
             import yaml  # type: ignore[import-untyped]
+
+            with open(file_info[0]["datapath"], encoding="utf-8") as fh:
+                _accept(load_homework_from_dict(yaml.safe_load(fh)))
         except ImportError:
             ui.notification_show(
-                "PyYAML is required. Install with: pip install pyyaml",
-                type="error",
+                "PyYAML is required. Install with: pip install pyyaml", type="error"
             )
-            return
-        try:
-            f = file_info[0]
-            with open(f["datapath"], "r", encoding="utf-8") as fh:
-                data = yaml.safe_load(fh)
-            homework = load_homework_from_dict(data)
-            hw.set(homework)
-            feedback_map.set({})
-            last_submission.set(None)
-            ui.notification_show(
-                f"Loaded homework: {homework.title} ({len(homework.questions)} questions)",
-                type="message",
-            )
-        except Exception as e:
-            ui.notification_show(f"Error loading YAML: {e}", type="error")
+        except Exception as exc:  # noqa: BLE001 - surfaced to the student
+            ui.notification_show(f"Could not open that file: {exc}", type="error")
 
-    # ------------------------------------------------------------------
-    # Loading homework from pasted content
-    # ------------------------------------------------------------------
     @reactive.effect
     @reactive.event(input.load_pasted)
     def _load_from_paste():
@@ -194,329 +169,173 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
         req(content and content.strip())
         try:
             import yaml  # type: ignore[import-untyped]
+
+            _accept(load_homework_from_dict(yaml.safe_load(content)))
         except ImportError:
             ui.notification_show(
-                "PyYAML is required. Install with: pip install pyyaml",
-                type="error",
+                "PyYAML is required. Install with: pip install pyyaml", type="error"
             )
-            return
-        try:
-            data = yaml.safe_load(content)
-            homework = load_homework_from_dict(data)
-            hw.set(homework)
-            feedback_map.set({})
-            last_submission.set(None)
-            ui.notification_show(
-                f"Loaded homework: {homework.title} ({len(homework.questions)} questions)",
-                type="message",
-            )
-        except Exception as e:
-            ui.notification_show(f"Error parsing YAML: {e}", type="error")
+        except Exception as exc:  # noqa: BLE001 - surfaced to the student
+            ui.notification_show(f"Could not read that: {exc}", type="error")
 
     # ------------------------------------------------------------------
-    # Render homework header (title, description, point total)
+    # Rendering
     # ------------------------------------------------------------------
+
     @render.ui
     def hw_header():
         homework = hw()
         if homework is None:
             return ui.tags.div(
                 ui.h4("Homework"),
-                ui.p("Upload or paste a homework YAML file to get started.",
-                     class_="text-muted"),
+                ui.p("Open an assignment file to get started.", class_="text-muted"),
             )
         return ui.tags.div(
             ui.h4(homework.title),
             ui.p(homework.description) if homework.description else ui.TagList(),
             ui.tags.p(
-                ui.tags.strong("Dataset: "),
-                ui.tags.span(homework.dataset),
-                ui.tags.strong(" | Total Points: ", class_="ms-3"),
+                ui.tags.strong("Dataset: "), ui.tags.span(homework.dataset),
+                ui.tags.strong(" | Points: ", class_="ms-3"),
                 ui.tags.span(str(homework.total_points)),
-                ui.tags.strong(f" | Questions: ", class_="ms-3"),
+                ui.tags.strong(" | Questions: ", class_="ms-3"),
                 ui.tags.span(str(len(homework.questions))),
-                class_="text-muted",
+                class_="text-muted small",
             ),
-            ui.tags.hr(),
+            ui.tags.div(
+                ui.tags.strong("How this is marked: "),
+                "your answers are not checked here. Download your submission "
+                "when you are finished and upload it to Canvas — your "
+                "instructor marks it from there.",
+                class_="alert alert-light border small",
+            ),
         )
 
-    # ------------------------------------------------------------------
-    # Render questions dynamically
-    # ------------------------------------------------------------------
     @render.ui
     def questions_panel():
         homework = hw()
         if homework is None:
             return ui.TagList()
-        question_widgets = [_question_input(session.ns, q) for q in homework.questions]
-        return ui.tags.div(*question_widgets)
+        return ui.TagList(*[_question_input(q) for q in homework.questions])
 
-    # ------------------------------------------------------------------
-    # Per-question feedback — we create individual render.ui for each
-    # question.  Since the number of questions is dynamic, we use a
-    # reactive effect that registers outputs when the homework changes.
-    # ------------------------------------------------------------------
-    @reactive.effect
-    def _register_question_handlers():
+    @render.ui
+    def work_summary():
+        if hw() is None:
+            return ui.TagList()
+        steps = _work_steps()
+        if not steps:
+            return ui.tags.div(
+                "No analysis recorded yet. Work through the questions using the "
+                "Data, Explore, Visualize, Analyze and Model tabs — what you do "
+                "there is included in your submission.",
+                class_="alert alert-light border small",
+            )
+        return ui.tags.div(
+            ui.tags.strong(f"{len(steps)} step{'s' if len(steps) != 1 else ''} of work recorded."),
+            " This is included in your submission so your instructor can see how "
+            "you got your answers.",
+            class_="alert alert-light border small",
+        )
+
+    @render.ui
+    def submit_hint():
         homework = hw()
         if homework is None:
-            return
-
-        for q in homework.questions:
-            _register_check_handler(q)
-            _register_feedback_renderer(q)
-
-    def _register_check_handler(q: HomeworkQuestion):
-        """Register the 'check answer' reactive handler for one question."""
-        qid = q.id
-        check_id = f"check_{qid}" if q.type != "checkpoint" else f"ans_{qid}"
-
-        @reactive.effect
-        @reactive.event(getattr(input, check_id))
-        def _check(q=q, qid=qid):
-            student_answer = _get_student_answer(q)
-            if student_answer is None and q.type != "checkpoint":
-                fb = dict(feedback_map())
-                fb[qid] = '<span class="text-warning">Please provide an answer first.</span>'
-                feedback_map.set(fb)
-                return
-
-            correct, pts = check_answer(q, student_answer if student_answer is not None else "")
-            fb = dict(feedback_map())
-
-            if q.type == "checkpoint":
-                fb[qid] = (
-                    f'<span class="text-success">'
-                    f'&#10003; Checkpoint completed! (+{pts} pt{"s" if pts != 1 else ""})'
-                    f'</span>'
-                )
-            elif q.type == "free_response":
-                fb[qid] = (
-                    '<span class="text-info">'
-                    '&#9998; Recorded. Free-response answers are graded by the instructor.'
-                    '</span>'
-                )
-            elif awaits_instructor(q):
-                fb[qid] = (
-                    '<span class="text-info">'
-                    '&#9998; Answer saved. This question is graded after you '
-                    'submit, so it is not checked here.'
-                    '</span>'
-                )
-            elif correct:
-                fb[qid] = (
-                    f'<span class="text-success">'
-                    f'&#10003; Correct! (+{pts} pt{"s" if pts != 1 else ""})'
-                    f'</span>'
-                )
-            else:
-                hint_text = f" Hint: {q.hint}" if q.hint else ""
-                fb[qid] = (
-                    f'<span class="text-danger">'
-                    f'&#10007; Incorrect. (0/{q.points} pts){hint_text}'
-                    f'</span>'
-                )
-
-            feedback_map.set(fb)
-
-    def _register_feedback_renderer(q: HomeworkQuestion):
-        """Register a @render.ui for the feedback area of one question."""
-        qid = q.id
-        output_id = f"fb_{qid}"
-
-        @output
-        @render.ui
-        def _fb(qid=qid):
-            fb = feedback_map()
-            text = fb.get(qid, "")
-            if text:
-                return ui.HTML(f'<div class="mt-2">{text}</div>')
             return ui.TagList()
-
-        _fb.__name__ = output_id
+        answered = sum(
+            1 for q in homework.questions if str(_answer_for(q) or "").strip()
+        )
+        return ui.tags.p(
+            f"{answered} of {len(homework.questions)} answered.",
+            class_="text-muted small mt-2 mb-0",
+        )
 
     # ------------------------------------------------------------------
-    # Helper: read the student answer from the dynamic input
+    # Collecting answers and work
     # ------------------------------------------------------------------
-    def _get_student_answer(q: HomeworkQuestion):
-        """Read the current student answer for a given question."""
-        input_id = f"ans_{q.id}"
+
+    def _answer_for(q: HomeworkQuestion):
+        """Read one answer, or None if the input does not exist yet."""
         try:
-            val = getattr(input, input_id)()
-        except Exception:
+            value = getattr(input, f"ans_{q.id}")()
+        except Exception:  # noqa: BLE001 - input not rendered yet
             return None
+        if q.type == "checkpoint":
+            return "completed" if value else None
+        return value
 
-        if q.type == "numeric":
-            if val is None:
-                return None
-            try:
-                return float(val)
-            except (ValueError, TypeError):
-                return None
-        elif q.type == "multiple_choice":
-            return val if val else None
-        elif q.type == "checkpoint":
-            # For checkpoint, the button press count > 0 means "completed"
-            return "completed" if val and int(val) > 0 else None
-        elif q.type == "free_response":
-            return val if val and str(val).strip() else None
-        return None
-
-    # ------------------------------------------------------------------
-    # Collect all answers into a dict
-    # ------------------------------------------------------------------
     def _collect_answers() -> dict[str, str | float]:
         homework = hw()
         if homework is None:
             return {}
-        answers: dict[str, str | float] = {}
+        collected: dict[str, str | float] = {}
         for q in homework.questions:
-            ans = _get_student_answer(q)
-            if ans is not None:
-                answers[q.id] = ans
-        return answers
+            value = _answer_for(q)
+            if value is not None and str(value).strip() != "":
+                collected[q.id] = value
+        return collected
 
-    # ------------------------------------------------------------------
-    # Submit all answers
-    # ------------------------------------------------------------------
-    @reactive.effect
-    @reactive.event(input.submit_all)
-    def _submit():
-        homework = hw()
-        req(homework is not None)
-        student_name = input.student_name() or "Anonymous"
-        answers = _collect_answers()
+    def _work_steps() -> list[dict]:
+        """The work log, preferring the procedure recorder.
 
-        # Build session log from state history
-        session_log = [
+        The recorder holds the generated code for each step; state.history only
+        holds a description. Fall back to history so a submission is never
+        empty just because recording was off.
+        """
+        recorder = getattr(state, "procedure_recorder", None)
+        if recorder is not None:
+            steps = recorder.get_steps()
+            if steps:
+                return [
+                    {
+                        "timestamp": getattr(step, "timestamp", ""),
+                        "action": step.action,
+                        "description": step.description,
+                        "dataset": step.dataset,
+                        "code": step.code,
+                    }
+                    for step in steps
+                    if step.enabled
+                ]
+        return [
             {
                 "timestamp": str(op.timestamp),
                 "action": op.action,
                 "description": op.description,
                 "dataset": op.dataset,
+                "code": "",
             }
             for op in state.history
         ]
 
-        submission = create_submission(homework, answers, session_log, student_name)
-        last_submission.set(submission)
-
-        # Update per-question feedback based on submission
-        fb: dict[str, str] = {}
-        for sa in submission.answers:
-            q = homework.get_question(sa.question_id)
-            if q is None:
-                continue
-            if q.type == "free_response":
-                fb[sa.question_id] = (
-                    '<span class="text-info">'
-                    '&#9998; Recorded for instructor review.'
-                    '</span>'
-                )
-            elif awaits_instructor(q):
-                # correct is None here. Without this branch it falls through
-                # to the else and tells the student their answer was wrong.
-                fb[sa.question_id] = (
-                    f'<span class="text-info">'
-                    f'&#9998; Answer submitted ({sa.max_points} pts, graded by '
-                    f'your instructor).'
-                    f'</span>'
-                )
-            elif q.type == "checkpoint":
-                if sa.correct:
-                    fb[sa.question_id] = (
-                        f'<span class="text-success">'
-                        f'&#10003; Completed (+{sa.points_earned} pts)'
-                        f'</span>'
-                    )
-                else:
-                    fb[sa.question_id] = (
-                        '<span class="text-warning">'
-                        '&#9888; Not marked as complete.'
-                        '</span>'
-                    )
-            elif sa.correct:
-                fb[sa.question_id] = (
-                    f'<span class="text-success">'
-                    f'&#10003; Correct! (+{sa.points_earned}/{sa.max_points} pts)'
-                    f'</span>'
-                )
-            else:
-                hint_text = f" Hint: {q.hint}" if q.hint else ""
-                fb[sa.question_id] = (
-                    f'<span class="text-danger">'
-                    f'&#10007; Incorrect (0/{sa.max_points} pts).{hint_text}'
-                    f'</span>'
-                )
-
-        feedback_map.set(fb)
-        pending_note = (
-            f" {submission.pending_review} pt"
-            f"{'s' if submission.pending_review != 1 else ''} awaiting instructor grading."
-            if submission.pending_review
-            else ""
-        )
-        ui.notification_show(
-            f"Submitted! Auto-graded: {submission.auto_total}/{submission.auto_max} pts."
-            f"{pending_note}",
-            type="message",
-        )
-
     # ------------------------------------------------------------------
-    # Submission summary panel
+    # Download
     # ------------------------------------------------------------------
-    @render.ui
-    def submission_summary():
-        sub = last_submission()
-        if sub is None:
-            return ui.TagList()
-        return ui.tags.div(
-            ui.tags.hr(),
-            ui.h5("Submission Summary"),
-            ui.tags.table(
-                ui.tags.tbody(
-                    ui.tags.tr(
-                        ui.tags.td(ui.tags.strong("Student:")),
-                        ui.tags.td(sub.student_name),
-                    ),
-                    ui.tags.tr(
-                        ui.tags.td(ui.tags.strong("Submitted:")),
-                        ui.tags.td(sub.submitted_at),
-                    ),
-                    ui.tags.tr(
-                        ui.tags.td(ui.tags.strong("Auto-graded:")),
-                        ui.tags.td(f"{sub.auto_total} / {sub.auto_max} pts"),
-                    ),
-                    ui.tags.tr(
-                        ui.tags.td(ui.tags.strong("Pending review:")),
-                        ui.tags.td(f"{sub.pending_review} pts"),
-                    ),
-                    ui.tags.tr(
-                        ui.tags.td(ui.tags.strong("Grand total possible:")),
-                        ui.tags.td(f"{sub.grand_max} pts"),
-                    ),
-                ),
-                class_="table table-sm table-bordered w-auto",
-            ),
-            class_="mt-3",
-        )
 
-    # ------------------------------------------------------------------
-    # Download graded submission JSON
-    # ------------------------------------------------------------------
-    @render.download(filename=lambda: _submission_filename())
-    def download_submission():
-        sub = last_submission()
-        req(sub is not None)
-        yield export_submission_bytes(sub)
-
-    def _submission_filename() -> str:
+    def _filename() -> str:
         homework = hw()
-        student = input.student_name() or "anonymous"
-        safe_student = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in student)
-        if homework:
-            safe_title = "".join(
-                c if c.isalnum() or c in ("-", "_") else "_" for c in homework.title
+        title = (homework.title if homework else "assignment").replace(" ", "_")
+        name = (input.student_name() or "student").strip().replace(" ", "_")
+        safe = "".join(c for c in f"{title}_{name}" if c.isalnum() or c in "._-")
+        return f"{safe or 'submission'}.html"
+
+    @render.download(filename=_filename)
+    def download_submission():
+        homework = hw()
+        if homework is None:
+            yield b"<p>No assignment is open.</p>"
+            return
+
+        name = (input.student_name() or "").strip()
+        if not name:
+            ui.notification_show(
+                "Add your name before downloading — it is recorded in the file.",
+                type="warning",
             )
-            return f"{safe_title}_{safe_student}_submission.json"
-        return f"homework_{safe_student}_submission.json"
+
+        submission = create_submission(
+            homework=homework,
+            answers=_collect_answers(),
+            session_log=_work_steps(),
+            student_name=name or "(not given)",
+        )
+        yield export_submission_html_bytes(submission, homework)

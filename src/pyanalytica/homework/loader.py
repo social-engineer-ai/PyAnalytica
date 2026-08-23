@@ -17,7 +17,6 @@ class HomeworkQuestion:
     text: str
     type: str  # "numeric", "multiple_choice", "checkpoint", "free_response"
     answer_hash: str = ""
-    graded: bool = False
     tolerance: float = 0.01
     points: int = 1
     hint: str | None = None
@@ -125,7 +124,6 @@ def _parse_homework(data: dict[str, Any]) -> Homework:
                 text=str(raw_q["text"]),
                 type=str(raw_q["type"]),
                 answer_hash=str(raw_q.get("answer_hash", "")),
-                graded=bool(raw_q.get("graded", False)),
                 tolerance=float(raw_q.get("tolerance", 0.01)),
                 points=int(raw_q.get("points", 1)),
                 hint=raw_q.get("hint"),

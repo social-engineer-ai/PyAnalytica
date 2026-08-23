@@ -2,7 +2,7 @@
 import pytest
 from pyanalytica.homework.schema import validate_homework
 from pyanalytica.homework.loader import Homework, HomeworkQuestion, load_homework_from_dict
-from pyanalytica.homework.grader import hash_answer, check_answer, generate_answer_hash
+from pyanalytica.core.answers import generate_answer_hash, hash_answer
 from pyanalytica.homework.submission import create_submission, export_submission_json, Submission
 
 # Test data
@@ -82,33 +82,10 @@ class TestGrader:
         h2 = hash_answer(42.0, tolerance=0.1)
         assert h1 == h2
 
-    def test_generate_and_check(self):
-        correct_hash = generate_answer_hash(244.0, tolerance=1.0)
-        q = HomeworkQuestion(id="q1", text="test", type="numeric",
-                            answer_hash=correct_hash, tolerance=1.0, points=2)
-        correct, points = check_answer(q, 244.0)
-        assert correct
-        assert points == 2
+    def test_hash_matches_the_generator(self):
+        """generate_answer_hash is what an author puts in a key."""
+        assert generate_answer_hash(244.0, tolerance=1.0) == hash_answer(244.0, 1.0)
 
-    def test_wrong_answer(self):
-        correct_hash = generate_answer_hash(244.0, tolerance=1.0)
-        q = HomeworkQuestion(id="q1", text="test", type="numeric",
-                            answer_hash=correct_hash, tolerance=1.0, points=2)
-        correct, points = check_answer(q, 999.0)
-        assert not correct
-        assert points == 0
-
-    def test_checkpoint_always_correct(self):
-        q = HomeworkQuestion(id="q1", text="test", type="checkpoint", points=1)
-        correct, points = check_answer(q, "anything")
-        assert correct
-        assert points == 1
-
-    def test_free_response(self):
-        q = HomeworkQuestion(id="q1", text="test", type="free_response", points=5)
-        correct, points = check_answer(q, "my answer")
-        assert correct  # always True
-        assert points == 0  # instructor grades
 
 class TestSubmission:
     def test_create_submission(self):

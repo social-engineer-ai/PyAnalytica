@@ -15,16 +15,15 @@ Both take under a second.  No hashing scheme fixes this -- local checking and
 local secrecy are mutually exclusive.  The resolution is to decide per question
 which one you want:
 
-``graded: false`` (default)
-    A practice question.  The student copy carries ``answer_hash`` and the app
-    marks it right or wrong immediately.  The answer is recoverable, which is
-    acceptable because the question carries no marks.
+Assignments therefore carry **no answer material at all**. There is nothing
+in a student's copy to recover, because nothing in the app checks an answer.
+Responses are recorded and marked later from the instructor's key by
+:mod:`pyanalytica.homework.regrade`.
 
-``graded: true``
-    A marked question.  The student copy carries **no** answer material at all,
-    so there is nothing to recover.  The app records the response without
-    judging it, and :mod:`pyanalytica.homework.regrade` scores it later from
-    the instructor's key.
+Self-checking with instant feedback still exists -- as
+:mod:`pyanalytica.practice`, a separate feature whose drills carry no marks
+and whose answers are therefore in plaintext. Keeping the two apart means
+neither has to compromise for the other.
 
 The master file holds plaintext answers and never leaves the author's machine.
 :func:`build` derives the student copy and the answer key from it, so the two
@@ -38,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyanalytica.homework.grader import hash_answer
+from pyanalytica.core.answers import hash_answer
 
 # Question types whose answers are checked automatically.
 _AUTO_TYPES = {"numeric", "multiple_choice"}
@@ -59,7 +58,6 @@ class MasterQuestion:
     text: str
     type: str
     answer: str | float | None = None
-    graded: bool = False
     tolerance: float = 0.01
     points: int = 1
     hint: str | None = None
@@ -93,11 +91,6 @@ class MasterHomework:
     @property
     def total_points(self) -> int:
         return sum(q.points for q in self.questions)
-
-    @property
-    def graded_points(self) -> int:
-        """Points attached to questions that carry marks."""
-        return sum(q.points for q in self.questions if q.graded)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +147,6 @@ def parse_master(data: dict[str, Any]) -> MasterHomework:
             text=str(raw["text"]),
             type=str(raw["type"]),
             answer=raw.get("answer"),
-            graded=bool(raw.get("graded", False)),
             tolerance=float(raw.get("tolerance", 0.01)),
             points=int(raw.get("points", 1)),
             hint=raw.get("hint"),
@@ -233,22 +225,13 @@ def build_student_copy(master: MasterHomework) -> dict[str, Any]:
             "type": q.type,
             "points": q.points,
         }
-        if q.graded:
-            out["graded"] = True
         if q.type == "numeric":
             out["tolerance"] = q.tolerance
         if q.options:
             out["options"] = list(q.options)
         if q.hint:
             out["hint"] = q.hint
-        # `rubric` describes how marks are awarded, so it stays author-side
-        # for graded questions and is shown only for practice ones.
-        if q.rubric and not q.graded:
-            out["rubric"] = q.rubric
-
-        # Only practice questions get checkable answer material.
-        if not q.graded and q.answer_hash:
-            out["answer_hash"] = q.answer_hash
+        # `rubric` describes how marks are awarded, so it stays author-side.
 
         questions.append(out)
 
@@ -274,7 +257,6 @@ def build_answer_key(master: MasterHomework) -> dict[str, Any]:
             {
                 "id": q.id,
                 "type": q.type,
-                "graded": q.graded,
                 "points": q.points,
                 "tolerance": q.tolerance,
                 # Plaintext is kept alongside the hash so feedback can tell a
@@ -306,10 +288,12 @@ def assert_no_answers_leaked(student: dict[str, Any]) -> None:
                     f"question '{q_id}' carries a plaintext '{secret}' field"
                 )
 
-        if q.get("graded") and q.get("answer_hash"):
+        if q.get("answer_hash"):
             problems.append(
-                f"question '{q_id}' is graded but ships an 'answer_hash', "
-                f"which is recoverable by sweeping candidate answers"
+                f"question '{q_id}' ships an 'answer_hash'. Assignments are "
+                f"marked by the instructor, so nothing in a student's copy "
+                f"should be checkable -- a hash is recoverable by sweeping "
+                f"candidate answers"
             )
 
     if problems:
@@ -365,7 +349,7 @@ def build(
         build_student_copy(master),
         student_path,
         f"# Generated from {master_p.name} -- do not edit by hand.\n"
-        f"# Safe to distribute: graded questions carry no answer material.",
+        f"# Safe to distribute: contains no answer material of any kind.",
     )
     _dump(
         build_answer_key(master),

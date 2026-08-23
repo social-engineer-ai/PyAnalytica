@@ -14,7 +14,7 @@ from pyanalytica.homework.authoring import (
     load_master,
     parse_master,
 )
-from pyanalytica.homework.grader import hash_answer
+from pyanalytica.core.answers import hash_answer
 from pyanalytica.homework.loader import load_homework
 
 
@@ -31,7 +31,6 @@ MASTER = {
             "answer": 19.79,
             "tolerance": 0.01,
             "points": 2,
-            "graded": True,
         },
         {
             "id": "q2",
@@ -53,7 +52,6 @@ MASTER = {
             "type": "free_response",
             "points": 3,
             "rubric": "Full credit for a data-backed observation.",
-            "graded": True,
         },
     ],
 }
@@ -66,16 +64,6 @@ class TestParseMaster:
         assert m.version == 2
         assert len(m.questions) == 4
         assert m.total_points == 7
-
-    def test_graded_points_counts_only_graded(self):
-        m = parse_master(MASTER)
-        assert m.graded_points == 5  # q1 (2) + q4 (3)
-
-    def test_graded_defaults_to_false(self):
-        """Omitting `graded` must mean practice, never accidentally marked."""
-        m = parse_master(MASTER)
-        q2 = next(q for q in m.questions if q.id == "q2")
-        assert q2.graded is False
 
     def test_numeric_without_answer_is_rejected(self):
         bad = {
@@ -135,23 +123,21 @@ class TestParseMaster:
 
 
 class TestStudentCopy:
-    def test_graded_question_carries_no_answer_material(self):
-        student = build_student_copy(parse_master(MASTER))
-        q1 = next(q for q in student["questions"] if q["id"] == "q1")
-        assert "answer_hash" not in q1
-        assert "answer" not in q1
-        assert q1["graded"] is True
+    def test_no_question_carries_answer_material(self):
+        """Assignments are marked by the instructor, so nothing is checkable.
 
-    def test_practice_question_carries_a_hash_for_instant_feedback(self):
+        Self-checking moved to pyanalytica.practice, whose drills carry no
+        marks and can therefore hold their answers in plaintext.
+        """
         student = build_student_copy(parse_master(MASTER))
-        q2 = next(q for q in student["questions"] if q["id"] == "q2")
-        assert q2["answer_hash"] == hash_answer("b", 0.0)
-        assert "graded" not in q2
+        for question in student["questions"]:
+            assert "answer_hash" not in question, question["id"]
+            assert "answer" not in question, question["id"]
 
-    def test_graded_rubric_stays_author_side(self):
+    def test_rubric_stays_author_side(self):
         student = build_student_copy(parse_master(MASTER))
-        q4 = next(q for q in student["questions"] if q["id"] == "q4")
-        assert "rubric" not in q4
+        for question in student["questions"]:
+            assert "rubric" not in question, question["id"]
 
     def test_no_plaintext_answers_anywhere(self):
         student = build_student_copy(parse_master(MASTER))
@@ -169,12 +155,8 @@ class TestStudentCopy:
 
 
 class TestLeakGuard:
-    def test_rejects_graded_question_with_hash(self):
-        leaky = {
-            "questions": [
-                {"id": "q1", "graded": True, "answer_hash": "deadbeef"},
-            ]
-        }
+    def test_rejects_any_answer_hash(self):
+        leaky = {"questions": [{"id": "q1", "answer_hash": "deadbeef"}]}
         with pytest.raises(HomeworkBuildError, match="recoverable"):
             assert_no_answers_leaked(leaky)
 
@@ -184,7 +166,7 @@ class TestLeakGuard:
             assert_no_answers_leaked(leaky)
 
     def test_accepts_clean_copy(self):
-        clean = {"questions": [{"id": "q1", "answer_hash": "abc"}]}
+        clean = {"questions": [{"id": "q1", "text": "?", "type": "numeric", "points": 2}]}
         assert_no_answers_leaked(clean)  # must not raise
 
 

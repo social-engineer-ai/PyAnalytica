@@ -23,7 +23,7 @@ MASTER = {
     "version": 2,
     "questions": [
         {"id": "q1", "text": "Mean of total_bill?", "type": "numeric",
-         "answer": 19.79, "tolerance": 0.01, "points": 2, "graded": True},
+         "answer": 19.79, "tolerance": 0.01, "points": 2},
         {"id": "q2", "text": "Which is categorical?", "type": "multiple_choice",
          "options": ["a", "b", "c"], "answer": "b", "points": 1},
         {"id": "q3", "text": "Load the dataset.", "type": "checkpoint",
@@ -136,38 +136,6 @@ class TestUntrustedInput:
         r = regrade(tampered, key)
         assert r.auto_total == 0
         assert all(o.points_earned == 0 for o in r.outcomes)
-
-    def test_dispute_is_reported(self, key):
-        tampered = _submission({"q1": 999.0})
-        tampered["auto_total"] = 7
-        r = regrade(tampered, key)
-        assert r.score_dispute is True
-        assert any("re-graded score stands" in w for w in r.warnings)
-
-    def test_graded_questions_do_not_trigger_a_false_dispute(self, key):
-        """An honest submission of an assignment with graded questions.
-
-        The student's app cannot score q1 (graded, ships no answer material),
-        so it reports only what it could check. Comparing that against the full
-        re-graded total would flag every honest student in the class.
-        """
-        honest = _submission({"q1": 19.79, "q2": "b", "q3": "x"})
-        # q2 (1) + q3 checkpoint (1) -- q1 is graded, so their app cannot
-        # score it and reports it as pending.
-        honest["auto_total"] = 2
-        honest["answers"][0]["correct"] = None
-        honest["answers"][0]["points_earned"] = 0
-
-        r = regrade(honest, key)
-        assert r.auto_total == 4          # instructor scores q1 too
-        assert r.comparable_total == 2    # what the app could have scored
-        assert r.score_dispute is False
-
-    def test_honest_submission_raises_no_dispute(self, key):
-        honest = _submission({"q1": 19.79, "q2": "b", "q3": "x"})
-        honest["auto_total"] = 2   # q1 is graded; the app scores q2 + q3 only
-        r = regrade(honest, key)
-        assert r.score_dispute is False
 
     def test_extra_question_ids_are_ignored_and_flagged(self, key):
         r = regrade(_submission({"q1": 19.79, "q99": "invented"}), key)

@@ -1,32 +1,31 @@
 """Authoritative re-grading of collected student submissions.
 
-The app grades on the student's own machine and writes the outcome into the
-exported JSON (``correct``, ``points_earned``, ``auto_total``).  That file then
-travels through the student's hands, and nothing signs it, so every score in it
-is a claim rather than a fact -- editing ``auto_total`` in a text editor is
-enough to change it.
+Nothing in the student's app grades anything: an assignment ships without
+answer material, so a submission carries answers and a record of the work, and
+no scores at all. This module supplies the marks, on the instructor's machine,
+from a key that never leaves it.
 
-This module therefore treats the submission as **untrusted input**: it reads
-only the raw ``answer`` values and the question ids, and recomputes every score
-from the instructor's key.  The claimed totals are parsed for exactly one
-purpose -- reporting a mismatch, which is useful signal but never affects the
-mark awarded.
+Submissions are still treated as untrusted input -- they arrive through the
+student's hands and nothing signs them -- so only the answers and question ids
+are read, and everything else is recomputed.
 
 What this does and does not defend against:
 
-* **Defends**: editing scores, flipping ``correct``, inflating totals,
-  submitting a file for an assignment version that has since changed.
+* **Defends**: editing anything in the file, and submitting against an
+  assignment version that has since changed.
 * **Does not defend**: a student submitting another student's correct answers.
   That is an academic-integrity matter, not a software one.
 """
 
 from __future__ import annotations
 
+import json
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyanalytica.homework.grader import hash_answer
+from pyanalytica.core.answers import answer_matches
 
 # Status values for a single re-graded question.
 STATUS_AUTO = "auto"              # scored automatically
@@ -47,7 +46,6 @@ class KeyQuestion:
     type: str
     points: int = 1
     tolerance: float = 0.01
-    graded: bool = False
     answer: str | float | None = None
     answer_hash: str = ""
     rubric: str | None = None
@@ -99,25 +97,6 @@ class RegradeResult:
     pending_review: int = 0
     grand_max: int = 0
     warnings: list[str] = field(default_factory=list)
-    claimed_total: int | None = None
-    comparable_total: int = 0
-
-    @property
-    def score_dispute(self) -> bool:
-        """True if the submission claimed a total this re-grade disagrees with.
-
-        Compared against `comparable_total`, not `auto_total`: the student's
-        app can only score questions it holds answer material for, so a graded
-        question is always pending on their side and scored on ours. Comparing
-        against the full total would flag every honest submission.
-
-        Not proof of tampering even so -- an assignment edited after a student
-        downloaded it produces the same signal -- but worth a look.
-        """
-        return (
-            self.claimed_total is not None
-            and self.claimed_total != self.comparable_total
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +122,6 @@ def parse_key(data: dict[str, Any]) -> AnswerKey:
                 type=str(raw.get("type", "numeric")),
                 points=int(raw.get("points", 1)),
                 tolerance=float(raw.get("tolerance", 0.01)),
-                graded=bool(raw.get("graded", False)),
                 answer=raw.get("answer"),
                 answer_hash=str(raw.get("answer_hash") or ""),
                 rubric=raw.get("rubric"),
@@ -155,6 +133,30 @@ def parse_key(data: dict[str, Any]) -> AnswerKey:
         version=int(data.get("version", 1)),
         questions=questions,
     )
+
+
+def load_submission(path: str | Path) -> dict[str, Any]:
+    """Read a submission from either export format.
+
+    Students download HTML (readable in the LMS, with the data embedded) but a
+    .json export is still accepted, as are files an LMS has renamed.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Submission not found: {p}")
+
+    text = p.read_text(encoding="utf-8", errors="replace")
+    stripped = text.lstrip()
+
+    if stripped.startswith("{"):
+        return json.loads(text)
+
+    from pyanalytica.homework.export_html import extract_submission_json
+
+    try:
+        return extract_submission_json(text)
+    except ValueError as exc:
+        raise RegradeError(f"{p.name}: {exc}") from exc
 
 
 def load_key(path: str | Path) -> AnswerKey:
@@ -178,38 +180,15 @@ def load_key(path: str | Path) -> AnswerKey:
 # Answer comparison
 # ---------------------------------------------------------------------------
 
-def _canonical_hash(question: KeyQuestion, raw_answer: Any) -> str:
-    """Hash a student's raw answer the same way the key's answer was hashed.
-
-    A numeric answer arrives from a text input as a string, so "19.790" and
-    19.79 would hash differently despite being the same number.  Coerce first,
-    and fall back to string comparison when coercion fails -- a numeric field
-    containing "twenty" is simply wrong, not a crash.
-    """
-    if question.type == "numeric":
-        try:
-            return hash_answer(float(str(raw_answer).strip()), question.tolerance)
-        except (TypeError, ValueError):
-            return hash_answer(str(raw_answer), 0.0)
-    return hash_answer(str(raw_answer), 0.0)
-
-
 def _is_correct(question: KeyQuestion, raw_answer: Any) -> bool:
-    """Compare a student answer against the key.
-
-    Prefers the plaintext answer when the key has one, because it lets numeric
-    answers be re-hashed at the key's tolerance rather than trusting a hash
-    that may have been generated at a different one.
-    """
-    if question.answer is not None:
-        expected = _canonical_hash(
-            question,
-            question.answer if question.type != "numeric" else float(question.answer),
-        )
-        return _canonical_hash(question, raw_answer) == expected
-    if question.answer_hash:
-        return _canonical_hash(question, raw_answer) == question.answer_hash
-    return False
+    """Compare a student answer against the key."""
+    return answer_matches(
+        raw_answer,
+        kind=question.type,
+        expected=question.answer,
+        expected_hash=question.answer_hash,
+        tolerance=question.tolerance,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -266,12 +245,13 @@ def regrade(
 
     outcomes: list[QuestionOutcome] = []
     auto_total = auto_max = pending = 0
-    # Points the student's own app could have scored: everything except graded
-    # questions (which ship without answer material) and free responses.
-    comparable_total = 0
 
     for question in key.questions:
-        answered = question.id in raw_answers
+        # Present-but-blank counts as unanswered. A submission lists every
+        # question in the assignment, answered or not, so mere presence of the
+        # id says nothing -- checking it alone awarded checkpoint marks to
+        # students who left them untouched.
+        answered = str(raw_answers.get(question.id, "") or "").strip() != "" 
         raw = raw_answers.get(question.id, "")
         answer_text = "" if raw is None else str(raw)
         correct_text = None if question.answer is None else str(question.answer)
@@ -305,7 +285,6 @@ def regrade(
             )
             auto_total += earned
             auto_max += question.points
-            comparable_total += earned
             continue
 
         if not answered or answer_text.strip() == "":
@@ -356,10 +335,7 @@ def regrade(
         )
         auto_total += earned
         auto_max += question.points
-        if not question.graded:
-            comparable_total += earned
 
-    claimed = submission.get("auto_total")
     result = RegradeResult(
         source=source,
         claimed_name=str(submission.get("student_name", "")),
@@ -371,16 +347,5 @@ def regrade(
         pending_review=pending,
         grand_max=key.grand_max,
         warnings=warnings,
-        claimed_total=int(claimed) if isinstance(claimed, (int, float)) else None,
-        comparable_total=comparable_total,
     )
-
-    if result.score_dispute:
-        result.warnings.append(
-            f"Submission claimed {result.claimed_total} auto points on the "
-            f"locally-checkable questions; re-grading awards "
-            f"{comparable_total} there ({auto_total} overall). "
-            f"The re-graded score stands."
-        )
-
     return result
