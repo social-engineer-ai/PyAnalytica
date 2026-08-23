@@ -4,7 +4,7 @@ You will install two things: **Python**, and then **PyAnalytica** itself. Budget
 
 Follow your operating system's section from top to bottom. Don't skip steps, even ones that look unnecessary — several of them exist to prevent a specific error later.
 
-> **You need a Windows PC or a Mac for this course.** A Chromebook or iPad will not run PyAnalytica. If that's all you have, or you can't install software on your machine, contact the instructor in the first week — see [If you can't install it](#if-you-cant-install-it).
+> **You need a Windows PC or a Mac.** If you hit something that blocks installation entirely, see [If you can't install it](#if-you-cant-install-it) and contact the instructor in the first week.
 
 ---
 
@@ -286,16 +286,12 @@ Check the terminal window. If it isn't showing the "PyAnalytica is starting" ban
 
 ## If you can't install it
 
-Contact the instructor **in the first week** — not the night before an assignment — if any of these apply:
+Contact the instructor **in the first week** — not the night before an assignment — if you hit any of these:
 
-- **You have a Chromebook or an iPad, and no Windows PC or Mac.** PyAnalytica cannot run on either. This is the most common blocker, and there is an arrangement for it.
-- **You are not an administrator on your computer** — for example a family machine set up under someone else's account. You may not be able to complete Step 1.
 - **Your antivirus blocks the installer or the download.** Some security software quarantines Python or interrupts `pip`, producing errors that look like something else entirely.
-- **Your Mac is too old** to install Python 3.12. Check **Apple menu → About This Mac** for your macOS version and mention it when you write.
-
-None of these are your fault and none of them are things to fight alone.
-
-> **Instructor: fill this in before the semester starts** — a lab location and hours, a hosted option, or a partner arrangement. A student on a Chromebook needs an answer the same day, not a plan.
+- **You are not an administrator on your computer**, so Step 1 won't complete.
+- **Your Mac is too old** to install Python 3.12. Check **Apple menu → About This Mac** and mention your macOS version when you write.
+- **You only have a Chromebook or iPad.** PyAnalytica needs Windows or macOS.
 
 ---
 
