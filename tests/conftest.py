@@ -1,5 +1,7 @@
 """Shared test fixtures for PyAnalytica."""
 
+from __future__ import annotations
+
 import os
 import shutil
 import socket
@@ -19,6 +21,7 @@ from pyanalytica.core.state import WorkbenchState
 @pytest.fixture
 def sample_df():
     """Small mixed-type DataFrame for testing."""
+
     np.random.seed(42)
     n = 100
     return pd.DataFrame({
