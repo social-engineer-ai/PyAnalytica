@@ -1,6 +1,6 @@
 # PyAnalytica — Full Test Pass
 
-**Time: about 3½–4 hours.** Take breaks between sessions; there are ten, and each one says how long it should take.
+**Time: about 4 hours.** Take breaks between sessions; there are ten, and each one says how long it should take.
 
 ## Read this first
 
@@ -482,27 +482,73 @@ These use a model you saved earlier. Go back to **Classify**, run a model, and s
 
 ---
 
-# Session 8 — Homework (20 min)
+# Session 8 — Practice and Homework (30 min)
 
-**Homework tab.** Ask for the file `hw1_tips.yaml` if you don't have it.
+These are two separate tabs that work in opposite ways. Checking that they
+behave differently is most of what this session is for.
+
+## 8A. Practice (marks your answers straight away)
+
+Open the **Practice** tab.
 
 | | Question | Answer |
 |---|---|---|
-| 8.1 | Could you load the homework file? | Yes / No |
-| 8.2 | How many questions are there? | |
-| 8.3 | Do any questions have a **"Graded"** badge? Which? | |
-| 8.4 | On a graded question, does the button say **"Save Answer"** (not "Check Answer")? | Yes / No |
-| 8.5 | Answer a graded question and click the button. What message do you get? | |
-| 8.6 | Does it ever tell you a graded answer is **wrong**? | Yes / No |
-| 8.7 | On the non-graded question, does it tell you right or wrong straight away? | Yes / No |
-| 8.8 | Deliberately answer that one wrong. Does it say so, and give a hint? | |
-| 8.9 | Submit. What does the summary say? | |
-| 8.10 | Download your submission. Does the file save? | Yes / No |
-| 8.11 | Open it in Notepad. Can you find your answers in it? | Yes / No |
+| 8.1 | Which drills are in the dropdown? | |
+| 8.2 | Pick "Tips: getting your bearings". Does it tell you which dataset to load? | Yes / No |
+| 8.3 | Load **tips** from Data > Load. Does that message change? | Yes / No |
+| 8.4 | Answer the first question correctly (244) and click Check. What happens? | |
+| 8.5 | Answer one deliberately wrong. Does it say so? | Yes / No |
+| 8.6 | Does the wrong answer come with a hint? | Yes / No |
+| 8.7 | Click **Hint** on any question. Does a hint appear? | Yes / No |
+| 8.8 | Answer a few. Does the "X of 6 correct" counter update? | Yes / No |
+| 8.9 | Click **Start over**. Does the counter reset? | Yes / No |
+| 8.10 | Try the titanic drill. Does it work the same way? | Yes / No |
+| 8.11 | Type letters into a numeric answer box and Check. Crash, or handled? | |
 
-**8.6 is the important one.** A graded question must *never* say "incorrect" — it's marked later by the instructor. If it ever says a graded answer is wrong, that's a serious bug. Log it as **Wrong**.
+## 8B. Homework (does NOT mark anything)
 
----
+Open the **Homework** tab and load `hw1_tips.yaml` from the data folder.
+
+| | Question | Answer |
+|---|---|---|
+| 8.12 | Did the assignment load? How many questions? | |
+| 8.13 | Does it explain how the work will be marked? What does it say? | |
+| 8.14 | Is there a **Check** button anywhere on this tab? | Yes / No |
+| 8.15 | Answer a question. Does anything tell you right or wrong? | Yes / No |
+| 8.16 | Deliberately answer one wrong. Does anything tell you? | Yes / No |
+| 8.17 | Does the sidebar show how many you have answered? | Yes / No |
+
+**8.14, 8.15 and 8.16 are the important ones.** Homework must **never** tell
+you whether an answer is right — that is done by the instructor after you hand
+it in. If anything on this tab marks your answer, log it as **Wrong**.
+
+## 8C. The work record
+
+Before downloading, go and do some analysis: load tips, make a chart, run a
+summarize. Then come back to Homework.
+
+| | Question | Answer |
+|---|---|---|
+| 8.18 | Does the page say how many steps of work it recorded? | Yes / No |
+| 8.19 | Roughly how many steps? Does that match what you did? | |
+| 8.20 | Type your name, then click **Download submission**. Did a file save? | Yes / No |
+| 8.21 | What is the file called, and what type is it? | |
+
+## 8D. Check your submission
+
+Open the downloaded file in your **web browser** (double-click it).
+
+| | Question | Answer |
+|---|---|---|
+| 8.22 | Does it open as a readable page? | Yes / No |
+| 8.23 | Can you see the questions and your answers? | Yes / No |
+| 8.24 | Is there a "Work" table listing what you did? | Yes / No |
+| 8.25 | Does the work table show computer code for the steps? | Yes / No |
+| 8.26 | Does it show any score, mark, or right/wrong anywhere? | Yes / No |
+| 8.27 | Is your name on it? | Yes / No |
+
+**8.26 matters.** A submission should contain your answers and your work, and
+no scores at all. If you can see a score anywhere, log it.
 
 # Session 9 — Try to break it (25 min)
 
@@ -574,5 +620,7 @@ Deliberate abuse. For each, note whether you get a **clear explanation**, an **u
 - **3.7, 3.8** both work (they used to crash)
 - **4.11–4.13** clear explanation, no crash, app keeps working
 - **4.29** Timeline on titanic should explain there's no date column, not crash
-- **8.6** a graded question must **never** be told it's wrong
+- **8.4-8.9** Practice marks answers immediately: that is what it is for
+- **8.14-8.16** Homework must **never** mark an answer
+- **8.26** a submission must contain no scores at all
 - **Session 9** everything should give a clear message or ignore you — nothing should crash the app

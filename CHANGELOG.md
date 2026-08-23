@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-23
+
+### Changed
+
+- **The app no longer grades homework.** An assignment in a student's hands now
+  contains no answer material at all, because an answer their computer can
+  check is an answer they can extract: multiple-choice answers fell by hashing
+  the options the file already listed, and numeric answers by sweeping values
+  at the stated tolerance, both in under a second. Marking happens on the
+  instructor's machine against a key that never leaves it.
+- **Submissions carry evidence, not verdicts.** No `correct`, no
+  `points_earned`, no `auto_total` — a score computed on the student's machine
+  was a claim, not a fact. The work log is now taken from the procedure
+  recorder, so it carries the pandas/sklearn code behind each step rather than
+  only a description, and recording starts when an assignment is opened.
+- **Submissions export as HTML** with the same JSON embedded: readable in an
+  LMS, parseable by a grading script, one file to upload. Format version
+  `pyanalytica.submission/2`; the 0.5.x shape is not readable by this release.
+- The `graded:` question flag is gone. It marked which questions had to hide
+  their answers, and now they all do.
+
+### Added
+
+- **Practice tab** — self-check drills with instant feedback, separate from
+  assignments. Drills carry no marks, so their answers are in plaintext;
+  pretending to hide a derivable answer would be theatre. Two bundled drills.
+- **`pyanalytica-hw`**, the instructor command line: `build` turns a master
+  file into a student assignment plus an answer key, `grade` marks a folder of
+  LMS downloads into a gradebook CSV, `inspect` prints one submission.
+  Identity comes from the LMS filename, not from the name a student typed.
+- `docs/INSTRUCTOR.md` — authoring and marking, end to end.
+
+### Fixed
+
+- An unanswered checkpoint scored a point: submissions now list every question,
+  so testing for the presence of an id was always true. Blank counts as
+  unanswered.
+- A free-response answer containing `</script>` closed the embedded JSON block
+  early in an exported submission.
+- `examples/hw1_tips` asked for the mean of `total_bill` with 19.79, the value
+  from the real seaborn dataset. The bundled data is synthetic and its mean is
+  25.29, so every student would have been marked wrong.
+
 ## [0.5.1] - 2026-08-22
 
 ### Fixed

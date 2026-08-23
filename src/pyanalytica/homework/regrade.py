@@ -156,7 +156,9 @@ def load_submission(path: str | Path) -> dict[str, Any]:
     try:
         return extract_submission_json(text)
     except ValueError as exc:
-        raise RegradeError(f"{p.name}: {exc}") from exc
+        # No filename prefix: every caller already knows which file this is,
+        # and adding it here printed the name twice in the batch report.
+        raise RegradeError(str(exc)) from exc
 
 
 def load_key(path: str | Path) -> AnswerKey:
