@@ -219,3 +219,74 @@ class TestDateParsingOnUpload:
                 f"Timeline was offered no date column after uploading a CSV "
                 f"with dates. Offered: {options}"
             )
+
+
+class TestPracticeDrills:
+    """Practice had never been driven in a browser, only unit-tested.
+
+    Doing so found two faults at once: every question's feedback was registered
+    under the same output id, so checking an answer showed nothing; and the
+    "load the tips dataset" hint never cleared once tips was loaded.
+    """
+
+    def test_a_correct_answer_says_so(self, page):
+        _load_bundled(page, "tips")
+        _nav_to(page, "Practice")
+        _wait_stable(page, 2500)
+
+        page.locator(_sid("practice", "ans_rows")).fill("244")
+        _click_button(page, _sid("practice", "check_rows"))
+        _wait_stable(page, 2000)
+
+        feedback = page.locator(_sid("practice", "fb_rows")).inner_text()
+        assert feedback.strip(), "checking an answer produced no feedback at all"
+        assert "correct" in feedback.lower()
+
+    def test_a_wrong_answer_says_so_and_offers_the_hint(self, page):
+        _load_bundled(page, "tips")
+        _nav_to(page, "Practice")
+        _wait_stable(page, 2500)
+
+        page.locator(_sid("practice", "ans_mean_bill")).fill("19.79")
+        _click_button(page, _sid("practice", "check_mean_bill"))
+        _wait_stable(page, 2000)
+
+        feedback = page.locator(_sid("practice", "fb_mean_bill")).inner_text().lower()
+        assert "not quite" in feedback
+        assert "profile" in feedback  # the hint, so a wrong answer is a route forward
+
+    def test_each_question_has_its_own_feedback(self, page):
+        """All six were writing to one output, so only one could ever show."""
+        _load_bundled(page, "tips")
+        _nav_to(page, "Practice")
+        _wait_stable(page, 2500)
+
+        page.locator(_sid("practice", "ans_rows")).fill("244")
+        _click_button(page, _sid("practice", "check_rows"))
+        _wait_stable(page, 1500)
+
+        assert page.locator(_sid("practice", "fb_rows")).inner_text().strip()
+        assert not page.locator(_sid("practice", "fb_max_bill")).inner_text().strip()
+
+    def test_the_dataset_hint_clears_once_loaded(self, page):
+        _load_bundled(page, "tips")
+        _nav_to(page, "Practice")
+        _wait_stable(page, 2500)
+        hint = page.locator(_sid("practice", "dataset_hint")).inner_text().lower()
+        assert "using the tips dataset" in hint, (
+            f"the hint still tells the student to load a dataset they have: {hint!r}"
+        )
+
+    def test_score_counts_attempts_and_resets(self, page):
+        _load_bundled(page, "tips")
+        _nav_to(page, "Practice")
+        _wait_stable(page, 2500)
+
+        page.locator(_sid("practice", "ans_rows")).fill("244")
+        _click_button(page, _sid("practice", "check_rows"))
+        _wait_stable(page, 1500)
+        assert "1 of 6 correct" in page.locator(_sid("practice", "score_panel")).inner_text()
+
+        _click_button(page, _sid("practice", "reset"))
+        _wait_stable(page, 1500)
+        assert not page.locator(_sid("practice", "score_panel")).inner_text().strip()

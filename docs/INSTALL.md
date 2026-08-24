@@ -212,7 +212,7 @@ Then, with the app open in your browser:
 3. You should see a histogram.
 4. Click **Show Code** underneath it. You should see the equivalent pandas/seaborn code.
 
-If all four steps work, you're done. **Post a screenshot of your histogram to the Module 0 discussion board** to complete this module.
+If all four steps work, you're done. **Post a screenshot of your histogram to the course Teams channel** to complete this module.
 
 ---
 
@@ -297,10 +297,13 @@ Contact the instructor **in the first week** — not the night before an assignm
 
 ## Getting help
 
-Post in the Module 0 discussion board with:
+Ask in the course **Microsoft Teams** channel, and include:
 
 1. Windows or Mac
 2. The command you typed
 3. The **complete** error message, copied as text (not a photo of your screen)
+
+Paste the error as text rather than a screenshot — it can be searched, and
+somebody who hit the same thing last week will find your question.
 
 That's usually enough to solve it in one reply.

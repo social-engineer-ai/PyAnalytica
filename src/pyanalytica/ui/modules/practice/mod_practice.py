@@ -139,6 +139,11 @@ def practice_server(input, output, session, state: WorkbenchState, get_current_d
 
     @render.ui
     def dataset_hint():
+        # Depend on the store's change signal, or this still says "load the
+        # tips dataset" after the student has loaded it.
+        if state._change_signal is not None:
+            state._change_signal()
+
         drill = current()
         if drill is None:
             return ui.TagList()
@@ -252,13 +257,16 @@ def practice_server(input, output, session, state: WorkbenchState, get_current_d
             _set_feedback(qid, f'<span class="text-info">{q.hint}</span>')
 
     def _register_feedback(qid: str) -> None:
-        @output
+        # The id must be given to @output. Setting __name__ afterwards is too
+        # late -- the renderer is already registered under the function's own
+        # name, so every question wrote to the same output and none of them
+        # matched the ui.output_ui(f"fb_{qid}") slots. Checking an answer
+        # updated the score and showed the student nothing.
+        @output(id=f"fb_{qid}")
         @render.ui
         def _fb(qid=qid):
             text = feedback().get(qid, "")
             return ui.HTML(f'<div class="mt-2 small">{text}</div>') if text else ui.TagList()
-
-        _fb.__name__ = f"fb_{qid}"
 
     def _set_feedback(qid: str, html: str) -> None:
         fb = dict(feedback())
