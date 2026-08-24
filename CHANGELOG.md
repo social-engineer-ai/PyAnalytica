@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-08-24
+
+### Fixed
+
+- **Library deprecation notices no longer reach the student's terminal.** On
+  current library versions a boxplot prints a `MatplotlibDeprecationWarning`
+  raised inside seaborn, and a correlation heatmap a `PendingDeprecationWarning`.
+  Neither is actionable by a student or by us, and both look like errors to
+  someone new to a terminal — the same thing a student had already emailed
+  about after a completely successful start. The launcher now filters them;
+  they remain visible under pytest, when importing the package, and with
+  `PYANALYTICA_WARNINGS=1`.
+
+Found by installing the project fresh against current dependency versions
+rather than the older ones a developer machine happened to have: pandas 3.0.5,
+numpy 2.5.2, shiny 1.7.0, anthropic 1.0.0. All 767 tests pass on both.
+
 ## [0.6.2] - 2026-08-24
 
 The first student email arrived on day one. Nothing had failed -- the app
