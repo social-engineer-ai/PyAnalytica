@@ -45,11 +45,21 @@ from tests.test_e2e import (  # reuse the harness
 
 
 def _load_bundled(page, name: str) -> None:
-    """Load a bundled dataset and make it active."""
+    """Load a bundled dataset and make it active.
+
+    The source picker is a radio group, and _select_option cannot set one --
+    its JS fallback assigns .value to a <div> and silently does nothing. So
+    click the radio directly, and do it unconditionally: an earlier test that
+    switched to file upload leaves the picker there, and #load-bundled_name
+    does not exist in that mode. That ordering broke all five Practice tests
+    in CI while they passed in isolation.
+    """
     _nav_to(page, "Data", "Load")
     _wait_stable(page, 1500)
-    _select_option(page, _sid("load", "source"), "bundled")
-    _wait_stable(page, 1000)
+    bundled = page.locator(f"{_sid('load', 'source')} input[type=radio][value='bundled']")
+    if bundled.count():
+        bundled.first.check()
+    _wait_stable(page, 1200)
     _select_option(page, _sid("load", "bundled_name"), name)
     _wait_stable(page, 1000)
     _click_button(page, _sid("load", "load_btn"))
