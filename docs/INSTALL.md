@@ -376,9 +376,55 @@ click back on the black window and press **Ctrl+C**.
 
 ---
 
+### Make a one-click launcher (do this once)
+
+Nobody should have to remember three commands twelve times a semester. Make a
+file that runs them for you.
+
+**1.** In the Command Prompt, type this and press Enter:
+
+```
+notepad %USERPROFILE%\Documents\pyanalytica\start-pyanalytica.bat
+```
+
+**2.** Notepad says the file does not exist and asks whether to create it.
+Click **Yes**.
+
+**3.** Copy these five lines and paste them into Notepad:
+
+```
+@echo off
+cd /d %~dp0
+call .venv\Scripts\activate.bat
+pyanalytica
+pause
+```
+
+**4.** Press **Ctrl+S** to save, then close Notepad.
+
+That is it. From now on, open **Documents → pyanalytica** and **double-click
+`start-pyanalytica.bat`**. It opens the black window, turns the environment on,
+and starts PyAnalytica by itself.
+
+> Typing the `notepad ...` command in step 1 matters: it creates the file with
+> the right name straight away. If you instead open Notepad and use *Save As*,
+> Notepad quietly adds `.txt` to the end and the file will not run.
+
+**Optional:** right-click `start-pyanalytica.bat`, choose **Show more options →
+Send to → Desktop (create shortcut)**, and you have it one click away. If the
+AnyWare desktop is cleared between sessions, the file itself is still safe in
+your Documents folder — just make the shortcut again.
+
+To stop the app, click the black window and press **Ctrl+C**.
+
+---
+
 ### Every session after that
 
-You do **not** reinstall. Open the Command Prompt and type three lines:
+**Double-click `start-pyanalytica.bat`** in your `Documents\pyanalytica` folder.
+
+If you would rather type it, or the launcher is missing, these three lines do
+the same thing:
 
 ```
 cd %USERPROFILE%\Documents\pyanalytica
@@ -386,16 +432,12 @@ cd %USERPROFILE%\Documents\pyanalytica
 pyanalytica
 ```
 
-That is the whole routine. Bookmark this section.
-
----
-
 ### If PyAnalytica is missing when you come back
 
 AnyWare gives you a fresh machine each time. Your Documents folder normally
-follows you, but if the folder or the installation is gone, redo the **First
-session** steps from step 3 — a few minutes, and nothing you have saved is
-lost.
+follows you, but if the folder, the launcher, or the installation is gone, redo
+the **First session** steps from step 3 and make the launcher again — a few
+minutes, and nothing you have saved is lost.
 
 **If this happens every single time, email us.** Reinstalling weekly is not
 something you should put up with, and we will find you a better arrangement.
