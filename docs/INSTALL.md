@@ -5,8 +5,7 @@ You will install two things: **Python**, and then **PyAnalytica** itself. Budget
 Follow your operating system's section from top to bottom. Don't skip steps, even ones that look unnecessary — several of them exist to prevent a specific error later.
 
 > **You need a Windows PC or a Mac.** If you have neither, or something blocks
-> installation, use **UIUC AnyWare** — see [If you can't install it on your own
-> computer](#if-you-cant-install-it-on-your-own-computer). Don't spend an evening
+> installation, use **UIUC AnyWare** — see [Using UIUC AnyWare instead](#using-uiuc-anyware-instead). Don't spend an evening
 > fighting your laptop; AnyWare works and takes minutes.
 
 ---
@@ -302,36 +301,135 @@ Check the terminal window. If it isn't showing the "PyAnalytica is starting" ban
 
 ---
 
-## If you can't install it on your own computer
+## Using UIUC AnyWare instead
 
-Use **UIUC AnyWare**, the university's virtual Windows desktop, at
-**https://answers.uillinois.edu/illinois/anyware**. It runs in your browser,
-you have the rights to install there, and the steps in this guide work exactly
-as written once you are logged in.
+**UIUC AnyWare** is a Windows desktop that runs in your browser. You have the
+rights to install software there, so it solves every case above. Log in at
+**https://answers.uillinois.edu/illinois/anyware** with your NetID.
 
-Go straight to AnyWare rather than fighting your own machine if any of these
-apply:
+Use AnyWare if any of these apply:
 
 - **Your antivirus blocks the installer or interrupts `pip`.** Some consumer
   security software quarantines Python and reports it as something unrelated.
 - **You are not an administrator** on your computer — a family machine set up
   under someone else's account, for example.
 - **Your Mac is too old** for Python 3.12. Check **Apple menu → About This Mac**.
-- **You only have a Chromebook or an iPad.** AnyWare is the answer here, since
-  PyAnalytica itself needs Windows or macOS.
+- **You only have a Chromebook or an iPad.** PyAnalytica itself needs Windows
+  or macOS, so AnyWare is the answer.
 
-### Working on AnyWare
+Everything below happens *inside* the AnyWare desktop, in your browser.
 
-Follow the **Windows** section of this guide inside the AnyWare desktop.
+---
 
-**Save your work to a location that persists**, such as your U: drive or
-OneDrive, not the AnyWare desktop itself. Anything left on the virtual machine
-may be gone next time you log in.
+### First session — about 15 minutes
 
-> If PyAnalytica is not there when you come back, your session did not keep it.
-> Repeat Steps 5–7 — creating the environment and installing — which takes a
-> few minutes. Email us if this happens every session and we will sort out a
-> better arrangement for you.
+Python is already installed on AnyWare, so you skip Step 1 entirely.
+
+**1.** In the AnyWare desktop, click **Start**, type `cmd`, and press Enter. A
+black window opens. This is the Command Prompt; you type commands and press
+Enter after each one.
+
+**2.** Check Python is there:
+
+```
+python --version
+```
+
+You should see a version number of 3.10 or higher.
+
+**3.** Create a folder for this course **in your Documents folder**, and a
+virtual environment inside it:
+
+```
+cd %USERPROFILE%\Documents
+mkdir pyanalytica
+cd pyanalytica
+python -m venv .venv
+```
+
+**4.** Turn the environment on:
+
+```
+.venv\Scripts\activate.bat
+```
+
+Your prompt now starts with `(.venv)`. **That prefix is the thing to watch
+for** — without it, nothing else works.
+
+**5.** Install:
+
+```
+python -m pip install --upgrade pip
+pip install pyanalytica==0.6.1
+```
+
+This downloads about 100 MB and takes a few minutes.
+
+**6.** Start it:
+
+```
+pyanalytica
+```
+
+A browser tab opens inside AnyWare with PyAnalytica in it. To stop the app,
+click back on the black window and press **Ctrl+C**.
+
+---
+
+### Every session after that
+
+You do **not** reinstall. Open the Command Prompt and type three lines:
+
+```
+cd %USERPROFILE%\Documents\pyanalytica
+.venv\Scripts\activate.bat
+pyanalytica
+```
+
+That is the whole routine. Bookmark this section.
+
+---
+
+### If PyAnalytica is missing when you come back
+
+AnyWare gives you a fresh machine each time. Your Documents folder normally
+follows you, but if the folder or the installation is gone, redo the **First
+session** steps from step 3 — a few minutes, and nothing you have saved is
+lost.
+
+**If this happens every single time, email us.** Reinstalling weekly is not
+something you should put up with, and we will find you a better arrangement.
+
+---
+
+### Where to save your work on AnyWare
+
+This matters more than the installation, because losing an assignment is worse
+than losing an install.
+
+- **Save data files and downloads to your Documents folder, OneDrive, or your
+  U: drive** — never to the AnyWare Desktop, and never to `C:\Temp`.
+- When PyAnalytica downloads a file — an exported CSV, or your homework
+  submission — it lands on the AnyWare machine, not on your own computer.
+- **You can upload to Canvas from inside AnyWare.** Open a browser tab in the
+  AnyWare desktop, go to Canvas, and upload the file from there. That is the
+  simplest route and avoids moving files between machines.
+- If you do want a file on your own computer, put it in OneDrive from inside
+  AnyWare, then open OneDrive on your own machine.
+
+---
+
+### AnyWare tips
+
+- **Do not close the browser tab while the app is running.** Press Ctrl+C in
+  the Command Prompt first, or the app keeps running in a session you have
+  left.
+- **If you get "pyanalytica is not recognized"**, your prompt is missing the
+  `(.venv)` prefix. Run the activate line again.
+- **If a yellow warning during install mentions PATH**, you installed without
+  the virtual environment. Either redo steps 3-5, or start the app with
+  `python -m pyanalytica`, which works either way.
+- AnyWare sessions time out if you leave them idle. Save your work.
 
 ## Getting help
 
