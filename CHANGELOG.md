@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-08-24
+
+The first student email arrived on day one. Nothing had failed -- the app
+started and opened -- but the console filled with deprecation warnings and he
+reasonably reported it as an error. That, plus fixes finished after 0.6.1.
+
+### Fixed
+
+- **No more wall of warnings on startup.** Shiny 1.7 renamed
+  `render.download` and made the old name warn once per decorated function;
+  with eleven of them, every start printed twenty-plus lines of yellow text.
+  The app now uses whichever name the installed Shiny provides, so it is quiet
+  on new versions and still runs on old ones. Development had been pinned to
+  an older Shiny than students receive, which is why this surfaced from a
+  student rather than from us.
+- **`GET /favicon.ico` no longer returns 404** on every start.
+- **Practice showed no feedback when an answer was checked.** All six questions
+  wrote to the same output, so nothing appeared. The score counter updated,
+  which is why the automated tests passed while the feature was unusable.
+- The Practice sidebar kept saying "load the tips dataset" after tips was
+  loaded.
+
+### Changed
+
+- **Date columns in uploaded files are recognised automatically.** A CSV has no
+  types, so a date column arrived as text, Profile reported `str`, and Timeline
+  had no date axis to offer. Only columns whose values actually look like dates
+  are converted, and at least 95% must parse -- an order reference such as
+  `2024-001` is left alone, and numbers are never reinterpreted.
+- Python 3.14 is now tested in CI, because that is what UIUC AnyWare ships.
+
 ## [0.6.1] - 2026-08-23
 
 Everything here came from one human tester working through the first five

@@ -60,7 +60,7 @@ After the last command your prompt starts with `(.venv)`. **That prefix means th
 
 ```
 python -m pip install --upgrade pip
-pip install pyanalytica==0.6.1
+pip install pyanalytica==0.6.2
 ```
 
 The first command prevents a family of confusing installation errors. The second downloads roughly 100 MB and takes a few minutes.
@@ -155,7 +155,7 @@ After the last command your prompt starts with `(.venv)`. That prefix means the 
 
 ```bash
 python -m pip install --upgrade pip
-pip install pyanalytica==0.6.1
+pip install pyanalytica==0.6.2
 ```
 
 ### Step 6 — Start it
@@ -235,7 +235,7 @@ First, confirm the version. With the environment active:
 pyanalytica --version
 ```
 
-It should print `pyanalytica 0.6.1`.
+It should print `pyanalytica 0.6.2`.
 
 Then, with the app open in your browser:
 
