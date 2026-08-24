@@ -1,20 +1,18 @@
 # Module 0 — Installing PyAnalytica
 
-You will install two things: **Python**, and then **PyAnalytica** itself. Budget about 20 minutes. You only do this once.
+You will install two things: **Python**, and then **PyAnalytica** itself. Budget about 20 minutes. You only do this once, and at the end you'll have a file you double-click to start the software from then on.
 
-Follow your operating system's section from top to bottom. Don't skip steps, even ones that look unnecessary — several of them exist to prevent a specific error later.
+Follow your operating system's section from top to bottom. Don't skip steps, even ones that look unnecessary — several exist to prevent a specific error later.
 
-> **You need a Windows PC or a Mac.** If you have neither, or something blocks
-> installation, use **UIUC AnyWare** — see [Using UIUC AnyWare instead](#using-uiuc-anyware-instead). Don't spend an evening
-> fighting your laptop; AnyWare works and takes minutes.
+> **You need a Windows PC or a Mac.** If you have neither, or something blocks installation, use **UIUC AnyWare** — see [Using UIUC AnyWare instead](#using-uiuc-anyware-instead). Don't spend an evening fighting your laptop; AnyWare works and takes minutes.
 
 ---
 
 ## Which Python version
 
-PyAnalytica needs **Python 3.10, 3.11, 3.12, or 3.13**. We recommend **3.12**.
+PyAnalytica needs **Python 3.10 or newer**. We recommend **3.12**.
 
-Python's website will offer you a newer version than 3.12 on its front page. **Don't click the big yellow button.** Use the links below, which take you to the list of releases, and pick the newest **3.12.x** installer.
+Python's website offers a newer version than 3.12 on its front page. **Don't click the big yellow button.** Use the links below, which take you to the list of releases, and pick the newest **3.12.x** installer.
 
 ---
 
@@ -29,59 +27,49 @@ Python's website will offer you a newer version than 3.12 on its front page. **D
    This single checkbox causes more problems in this course than everything else combined. If you miss it, Windows will not know what `python` means. You can re-run the installer later and choose **Modify** to fix it.
 4. Click **Install Now** and wait for it to finish.
 
-### Step 2 — Open PowerShell
+### Step 2 — Open the Command Prompt
 
-Press the **Windows key**, type `powershell`, and press Enter. A blue window opens. You type commands here and press Enter after each one.
+Press the **Windows key**, type `cmd`, and press Enter. A black window opens. You type commands here and press Enter after each one.
 
 ### Step 3 — Check Python is installed
 
-```powershell
-py --version
+```
+python --version
 ```
 
-You should see `Python 3.12.x`.
+You should see `Python 3.12.x` (any 3.10 or newer is fine).
 
 **If the Microsoft Store opens instead**, Windows is intercepting the command because Python isn't properly installed — go back to Step 1 and make sure you tick the PATH box. If you've already done that, see [troubleshooting](#windows-typing-python-opens-the-microsoft-store).
 
 **If you get "not recognized"**, see [troubleshooting](#windows-python-is-not-recognized).
 
-> **`py` vs `python` vs `python3`.** Different computers respond to different commands, which trips up a lot of people. On Windows, **`py`** is the most reliable — it's the launcher installed alongside Python — and you only need it for Step 5. **Once you activate the environment in Step 5, always use plain `python` and `pip`.** Inside an activated environment those point at the right place on every computer.
-
-### Step 4 — Allow scripts to run
-
-Windows blocks script files by default, which will stop the next step from working. Run this once:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-Answer `Y` if it asks you to confirm. This affects only your own user account.
-
-### Step 5 — Create a folder and a virtual environment
+### Step 4 — Create a folder and a virtual environment
 
 A virtual environment is a private space for this course's software, so it can't interfere with anything else on your computer.
 
-```powershell
-mkdir $HOME\Documents\pyanalytica
-cd $HOME\Documents\pyanalytica
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```
+mkdir %USERPROFILE%\Documents\pyanalytica
+cd /d %USERPROFILE%\Documents\pyanalytica
+python -m venv .venv
+.venv\Scripts\activate.bat
 ```
 
 After the last command your prompt starts with `(.venv)`. **That prefix means the environment is active** — you need it every time you use PyAnalytica.
 
-### Step 6 — Update pip, then install PyAnalytica
+### Step 5 — Update pip, then install PyAnalytica
 
-```powershell
+```
 python -m pip install --upgrade pip
 pip install pyanalytica==0.6.1
 ```
 
 The first command prevents a family of confusing installation errors. The second downloads roughly 100 MB and takes a few minutes.
 
-### Step 7 — Start it
+You may see yellow warnings about scripts "not on PATH". If your prompt shows `(.venv)`, ignore them — see [troubleshooting](#pyanalytica-is-not-recognized--command-not-found) if the next step fails.
 
-```powershell
+### Step 6 — Start it
+
+```
 pyanalytica
 ```
 
@@ -93,9 +81,37 @@ Open that address in your browser if it does not open by itself.
 Press Ctrl+C in this window to stop.
 ```
 
-If the browser doesn't open, go to the address shown and open it yourself.
+To stop the app, click back on the black window and press **Ctrl+C**.
 
-To stop the app, click back on the PowerShell window and press **Ctrl+C**.
+### Step 7 — Make a one-click launcher
+
+Do this now and you never type those commands again.
+
+**1.** In the Command Prompt, run:
+
+```
+notepad %USERPROFILE%\Documents\pyanalytica\start-pyanalytica.bat
+```
+
+**2.** Notepad says the file doesn't exist and asks whether to create it. Click **Yes**.
+
+**3.** Copy these five lines and paste them into Notepad:
+
+```
+@echo off
+cd /d %~dp0
+call .venv\Scripts\activate.bat
+pyanalytica
+pause
+```
+
+**4.** Press **Ctrl+S** to save, then close Notepad.
+
+From now on, open **Documents → pyanalytica** and **double-click `start-pyanalytica.bat`**. It opens the window, activates the environment, and starts PyAnalytica by itself.
+
+> Running the `notepad ...` command in step 1 matters: it creates the file with the right name immediately. If you instead open Notepad and use *Save As*, Notepad quietly adds `.txt` to the end and the file will not run.
+
+**Optional:** right-click the file, choose **Show more options → Send to → Desktop (create shortcut)**, and it's one click away.
 
 ---
 
@@ -109,31 +125,15 @@ To stop the app, click back on the PowerShell window and press **Ctrl+C**.
 
 ### Step 2 — Install Python's security certificates
 
-**Do not skip this.** The macOS installer does not set up SSL certificates, and without them Step 6 fails with a security error that never mentions certificates.
+**Do not skip this.** The macOS installer does not set up SSL certificates, and without them Step 5 fails with a security error that never mentions certificates.
 
-Open **Finder → Applications → Python 3.12**, and double-click **Install Certificates.command**. A terminal window opens, runs for a few seconds, and finishes. Close it.
-
-From the terminal, this is the same thing:
-
-```bash
-open "/Applications/Python 3.12/Install Certificates.command"
-```
+Open **Finder → Applications → Python 3.12**, and double-click **Install Certificates.command**. A window opens, runs for a few seconds, and finishes. Close it.
 
 ### Step 3 — Open Terminal
 
 Press **Cmd + Space**, type `terminal`, and press Enter. A window opens where you type commands and press Enter after each one.
 
-### Step 4 — Check Python is installed
-
-```bash
-python3 --version
-```
-
-You should see `Python 3.12.x`.
-
-> **`python` vs `python3`.** On a Mac, plain `python` may not exist, or may point at an old system version — always use **`python3`** for Step 5. **Once you activate the environment, use plain `python` and `pip`.** Inside an activated environment those point at the right place.
-
-### Step 5 — Create a folder and a virtual environment
+### Step 4 — Create a folder and a virtual environment
 
 ```bash
 mkdir -p ~/Documents/pyanalytica
@@ -144,44 +144,66 @@ source .venv/bin/activate
 
 After the last command your prompt starts with `(.venv)`. That prefix means the environment is active.
 
-### Step 6 — Update pip, then install PyAnalytica
+> **`python` vs `python3`.** On a Mac, plain `python` may not exist or may point at an old system version — use **`python3`** for the line above. Once the environment is active, plain `python` and `pip` are correct.
+
+### Step 5 — Update pip, then install PyAnalytica
 
 ```bash
 python -m pip install --upgrade pip
 pip install pyanalytica==0.6.1
 ```
 
-The first command prevents a family of confusing installation errors. The second downloads roughly 100 MB and takes a few minutes.
-
-### Step 7 — Start it
+### Step 6 — Start it
 
 ```bash
 pyanalytica
 ```
 
-Your browser opens automatically, and the window shows:
+Your browser opens automatically. To stop the app, click back on the Terminal window and press **Control+C**.
 
+### Step 7 — Make a one-click launcher
+
+**1.** In Terminal, run this to create the file and open it:
+
+```bash
+touch ~/Documents/pyanalytica/start-pyanalytica.command
+open -e ~/Documents/pyanalytica/start-pyanalytica.command
 ```
-PyAnalytica is starting at http://127.0.0.1:8000
-Open that address in your browser if it does not open by itself.
-Press Ctrl+C in this window to stop.
+
+**2.** TextEdit opens. Paste these four lines:
+
+```bash
+#!/bin/bash
+cd "$(dirname "$0")"
+source .venv/bin/activate
+pyanalytica
 ```
 
-If the browser doesn't open, go to the address shown and open it yourself.
+**3.** Save with **Cmd+S** and close TextEdit.
 
-To stop the app, click back on the Terminal window and press **Control+C**.
+**4.** Back in Terminal, make it runnable — this line is required, and only needed once:
+
+```bash
+chmod +x ~/Documents/pyanalytica/start-pyanalytica.command
+```
+
+From now on, open **Documents → pyanalytica** in Finder and **double-click `start-pyanalytica.command`**. Terminal opens and starts PyAnalytica by itself.
+
+> The first time you double-click it, macOS may warn that it's from an unidentified developer. Right-click the file, choose **Open**, then **Open** again. You only do this once.
 
 ---
 
-## Every time you want to use PyAnalytica after today
+## Every time you use PyAnalytica after today
 
-You do **not** reinstall. You reactivate the environment and start the app.
+**Double-click your launcher** — `start-pyanalytica.bat` (Windows) or `start-pyanalytica.command` (Mac) in your `Documents/pyanalytica` folder.
 
-**Windows (PowerShell):**
+If the launcher is missing, these do the same thing:
 
-```powershell
-cd $HOME\Documents\pyanalytica
-.\.venv\Scripts\Activate.ps1
+**Windows (Command Prompt):**
+
+```
+cd /d %USERPROFILE%\Documents\pyanalytica
+.venv\Scripts\activate.bat
 pyanalytica
 ```
 
@@ -192,8 +214,6 @@ cd ~/Documents/pyanalytica
 source .venv/bin/activate
 pyanalytica
 ```
-
-Your browser opens automatically each time.
 
 ---
 
@@ -222,13 +242,13 @@ If all four steps work, you're done. **Post a screenshot of your histogram to th
 
 ### Start over from scratch
 
-If your environment gets into a confusing state, the fastest fix is to delete it and rebuild. You lose nothing — the environment holds only installed software, not your work.
+If your environment gets into a confusing state, delete it and rebuild. You lose nothing — the environment holds only installed software, not your work.
 
 **Windows:**
 
-```powershell
-cd $HOME\Documents\pyanalytica
-Remove-Item -Recurse -Force .venv
+```
+cd /d %USERPROFILE%\Documents\pyanalytica
+rmdir /s /q .venv
 ```
 
 **Mac:**
@@ -238,58 +258,51 @@ cd ~/Documents/pyanalytica
 rm -rf .venv
 ```
 
-Then redo Step 5 onwards.
+Then redo Step 4 onwards.
 
 ### Windows: typing `python` opens the Microsoft Store
 
 Windows ships a placeholder that opens the Store when Python isn't installed. Installing from python.org with the PATH box ticked normally resolves it.
 
-If it still happens afterwards, switch the placeholder off: **Settings → Apps → Advanced app settings → App execution aliases**, then turn **off** the entries named `python.exe` and `python3.exe`. Close PowerShell, open it again, and retry.
+If it still happens, switch the placeholder off: **Settings → Apps → Advanced app settings → App execution aliases**, and turn **off** `python.exe` and `python3.exe`. Close the Command Prompt, open it again, and retry.
 
 ### Windows: "python is not recognized"
 
 The "Add python.exe to PATH" box was not ticked during installation.
 
-**Fix:** re-run the Python installer, choose **Modify**, click Next, tick **Add Python to environment variables**, and click Install. Then close PowerShell, open it again, and retry.
-
-### Windows: "cannot be loaded because running scripts is disabled"
-
-You skipped Step 4. Run this, then retry:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-### Mac: "SSL: CERTIFICATE_VERIFY_FAILED" during pip install
-
-You skipped Step 2. Open **Applications → Python 3.12 → Install Certificates.command**, let it finish, then retry the install.
+**Fix:** re-run the Python installer, choose **Modify**, click Next, tick **Add Python to environment variables**, and click Install. Then close the Command Prompt, open it again, and retry.
 
 ### "pyanalytica is not recognized" / "command not found"
 
-Almost always the virtual environment is not active — your prompt is missing
-the `(.venv)` prefix.
+Almost always the virtual environment is not active — your prompt is missing the `(.venv)` prefix.
 
-**Fix:** `cd` back into your `pyanalytica` folder and run the activate command
-from the section above, then try again.
+**Fix:** double-click your launcher, or `cd` back into the folder and run the activate line from the section above.
 
-**If you installed without a virtual environment**, you may have seen a yellow
-warning during the install saying the scripts were installed somewhere "which
-is not on PATH". That is this problem: the program is installed, but Windows
-cannot find the name. Either redo Steps 5-7 to use a virtual environment, or
-start it this way, which works regardless of PATH:
+**If you installed without a virtual environment**, you may have seen a yellow warning saying the scripts were installed somewhere "which is not on PATH". That is this problem: the program is installed, but Windows cannot find the name. Either redo Steps 4–5 with the virtual environment, or start it this way, which works regardless of PATH:
 
 ```
 python -m pyanalytica
 ```
 
-Everything else works the same; `python -m pyanalytica --version` and
-`python -m pyanalytica --port 8001` behave exactly like the short command.
+`python -m pyanalytica --version` and `python -m pyanalytica --port 8001` behave exactly like the short command.
+
+### Mac: "SSL: CERTIFICATE_VERIFY_FAILED" during pip install
+
+You skipped Step 2. Open **Applications → Python 3.12 → Install Certificates.command**, let it finish, then retry the install.
+
+### PowerShell: "cannot be loaded because running scripts is disabled"
+
+This guide uses the Command Prompt (`cmd`), which doesn't have this restriction. If you prefer PowerShell, run this once and then use `.\.venv\Scripts\Activate.ps1` to activate:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
 
 ### The app started on a strange port number
 
 If you see `Port 8000 was busy, using 61699 instead.`, that's normal — PyAnalytica was already running in another window, so this copy moved to a free port. Use whichever address it printed.
 
-If you want a specific port, ask for one:
+To ask for a specific port:
 
 ```
 pyanalytica --port 8001
@@ -303,190 +316,58 @@ Check the terminal window. If it isn't showing the "PyAnalytica is starting" ban
 
 ## Using UIUC AnyWare instead
 
-**UIUC AnyWare** is a Windows desktop that runs in your browser. You have the
-rights to install software there, so it solves every case above. Log in at
-**https://answers.uillinois.edu/illinois/anyware** with your NetID.
+**UIUC AnyWare** is a Windows desktop that runs in your browser. You have the rights to install software there, so it solves every case below. Log in at **https://answers.uillinois.edu/illinois/anyware** with your NetID.
 
-Use AnyWare if any of these apply:
+Use AnyWare if:
 
-- **Your antivirus blocks the installer or interrupts `pip`.** Some consumer
-  security software quarantines Python and reports it as something unrelated.
-- **You are not an administrator** on your computer — a family machine set up
-  under someone else's account, for example.
+- **Your antivirus blocks the installer or interrupts `pip`.**
+- **You are not an administrator** on your computer — a family machine set up under someone else's account, for example.
 - **Your Mac is too old** for Python 3.12. Check **Apple menu → About This Mac**.
-- **You only have a Chromebook or an iPad.** PyAnalytica itself needs Windows
-  or macOS, so AnyWare is the answer.
+- **You only have a Chromebook or an iPad.** PyAnalytica needs Windows or macOS, so AnyWare is the answer.
 
-Everything below happens *inside* the AnyWare desktop, in your browser.
+### Setting up on AnyWare
 
----
+Everything happens *inside* the AnyWare desktop, in your browser.
 
-### First session — about 15 minutes
-
-Python is already installed on AnyWare, so you skip Step 1 entirely.
-
-**1.** In the AnyWare desktop, click **Start**, type `cmd`, and press Enter. A
-black window opens. This is the Command Prompt; you type commands and press
-Enter after each one.
-
-**2.** Check Python is there:
-
-```
-python --version
-```
-
-You should see a version number of 3.10 or higher.
-
-**3.** Create a folder for this course **in your Documents folder**, and a
-virtual environment inside it:
-
-```
-cd %USERPROFILE%\Documents
-mkdir pyanalytica
-cd pyanalytica
-python -m venv .venv
-```
-
-**4.** Turn the environment on:
-
-```
-.venv\Scripts\activate.bat
-```
-
-Your prompt now starts with `(.venv)`. **That prefix is the thing to watch
-for** — without it, nothing else works.
-
-**5.** Install:
-
-```
-python -m pip install --upgrade pip
-pip install pyanalytica==0.6.1
-```
-
-This downloads about 100 MB and takes a few minutes.
-
-**6.** Start it:
-
-```
-pyanalytica
-```
-
-A browser tab opens inside AnyWare with PyAnalytica in it. To stop the app,
-click back on the black window and press **Ctrl+C**.
-
----
-
-### Make a one-click launcher (do this once)
-
-Nobody should have to remember three commands twelve times a semester. Make a
-file that runs them for you.
-
-**1.** In the Command Prompt, type this and press Enter:
-
-```
-notepad %USERPROFILE%\Documents\pyanalytica\start-pyanalytica.bat
-```
-
-**2.** Notepad says the file does not exist and asks whether to create it.
-Click **Yes**.
-
-**3.** Copy these five lines and paste them into Notepad:
-
-```
-@echo off
-cd /d %~dp0
-call .venv\Scripts\activate.bat
-pyanalytica
-pause
-```
-
-**4.** Press **Ctrl+S** to save, then close Notepad.
-
-That is it. From now on, open **Documents → pyanalytica** and **double-click
-`start-pyanalytica.bat`**. It opens the black window, turns the environment on,
-and starts PyAnalytica by itself.
-
-> Typing the `notepad ...` command in step 1 matters: it creates the file with
-> the right name straight away. If you instead open Notepad and use *Save As*,
-> Notepad quietly adds `.txt` to the end and the file will not run.
-
-**Optional:** right-click `start-pyanalytica.bat`, choose **Show more options →
-Send to → Desktop (create shortcut)**, and you have it one click away. If the
-AnyWare desktop is cleared between sessions, the file itself is still safe in
-your Documents folder — just make the shortcut again.
-
-To stop the app, click the black window and press **Ctrl+C**.
-
----
+**Python is already installed there, so skip Step 1.** Follow the **Windows** section from **Step 2** onwards — open the Command Prompt, create the environment, install, and make the launcher in Step 7. It takes about 15 minutes.
 
 ### Every session after that
 
-**Double-click `start-pyanalytica.bat`** in your `Documents\pyanalytica` folder.
-
-If you would rather type it, or the launcher is missing, these three lines do
-the same thing:
-
-```
-cd %USERPROFILE%\Documents\pyanalytica
-.venv\Scripts\activate.bat
-pyanalytica
-```
+**Double-click `start-pyanalytica.bat`** in your `Documents\pyanalytica` folder. That's the whole routine — this is exactly why Step 7 is worth doing.
 
 ### If PyAnalytica is missing when you come back
 
-AnyWare gives you a fresh machine each time. Your Documents folder normally
-follows you, but if the folder, the launcher, or the installation is gone, redo
-the **First session** steps from step 3 and make the launcher again — a few
-minutes, and nothing you have saved is lost.
+AnyWare gives you a fresh machine each time. Your Documents folder normally follows you, but if the folder, the launcher, or the installation is gone, redo Steps 4–7 — a few minutes, and nothing you have saved is lost.
 
-**If this happens every single time, email us.** Reinstalling weekly is not
-something you should put up with, and we will find you a better arrangement.
-
----
+**If this happens every single time, email us.** Reinstalling weekly is not something you should put up with, and we will find you a better arrangement.
 
 ### Where to save your work on AnyWare
 
-This matters more than the installation, because losing an assignment is worse
-than losing an install.
+This matters more than the installation, because losing an assignment is worse than losing an install.
 
-- **Save data files and downloads to your Documents folder, OneDrive, or your
-  U: drive** — never to the AnyWare Desktop, and never to `C:\Temp`.
-- When PyAnalytica downloads a file — an exported CSV, or your homework
-  submission — it lands on the AnyWare machine, not on your own computer.
-- **You can upload to Canvas from inside AnyWare.** Open a browser tab in the
-  AnyWare desktop, go to Canvas, and upload the file from there. That is the
-  simplest route and avoids moving files between machines.
-- If you do want a file on your own computer, put it in OneDrive from inside
-  AnyWare, then open OneDrive on your own machine.
-
----
+- **Save data files and downloads to your Documents folder, OneDrive, or your U: drive** — never to the AnyWare Desktop, and never to `C:\Temp`.
+- When PyAnalytica downloads a file — an exported CSV, or your homework submission — **it lands on the AnyWare machine, not on your own computer.**
+- **Upload to Canvas from inside AnyWare.** Open a browser tab in the AnyWare desktop, go to Canvas, and upload from there. That's the simplest route and avoids moving files between machines.
+- If you want a file on your own computer, put it in OneDrive from inside AnyWare, then open OneDrive on your own machine.
 
 ### AnyWare tips
 
-- **Do not close the browser tab while the app is running.** Press Ctrl+C in
-  the Command Prompt first, or the app keeps running in a session you have
-  left.
-- **If you get "pyanalytica is not recognized"**, your prompt is missing the
-  `(.venv)` prefix. Run the activate line again.
-- **If a yellow warning during install mentions PATH**, you installed without
-  the virtual environment. Either redo steps 3-5, or start the app with
-  `python -m pyanalytica`, which works either way.
+- **Press Ctrl+C in the black window before closing the browser tab**, or the app keeps running in a session you have left.
 - AnyWare sessions time out if you leave them idle. Save your work.
+
+---
 
 ## Getting help
 
 **Email the course address: uiucbadm576@gmail.com**
 
-Include all four of these — with them, most problems are solved in one reply;
-without them, the first reply is just us asking for them:
+Include all four of these — with them, most problems are solved in one reply; without them, the first reply is just us asking for them:
 
-1. Windows or Mac
+1. Windows, Mac, or AnyWare
 2. Which step you were on
 3. The command you typed
 4. The **complete** error message, copied as text rather than a screenshot
 
-To copy the error: select it in the PowerShell or Terminal window, press
-Ctrl+C (Cmd+C on a Mac), and paste it into the email.
+To copy the error: select it in the window, press Ctrl+C (Cmd+C on a Mac), and paste it into the email.
 
-General discussion happens in the course **Microsoft Teams** channel; installation
-problems go to the email address above so they don't get lost in the chat.
+General discussion happens in the course **Microsoft Teams** channel; installation problems go to the email address above so they don't get lost in the chat.
