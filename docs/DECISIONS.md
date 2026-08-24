@@ -256,3 +256,41 @@ Suites that pass alone can fail together. The 16-failure regression above only
 appeared when both browser files ran in one session, because the new tests
 loaded datasets in a pattern the old ones never did. Run them together in CI,
 not separately.
+
+---
+
+## 12. A warning visible under pytest is not a warning a student sees
+
+**Decision.** Judge student-facing console output by running the code the way a
+student runs it — default warning filters, plain interpreter, stderr captured —
+never by what a test run prints.
+
+**How we got there.** A student emailed on day one reporting a "setup error"
+that was a successful start plus twenty-odd `ShinyDeprecationWarning` lines.
+Fixing that at source (0.6.2, using shiny's renamed decorator) was correct.
+
+Then, upgrading the development environment to match what students actually
+resolve, pytest showed `MatplotlibDeprecationWarning` from inside seaborn on
+every boxplot. That looked like the same problem, so 0.6.3 shipped a filter in
+the launcher to suppress it.
+
+**The filter does nothing.** Running every common operation with Python's
+default filters produces no warnings at all:
+
+| Warning | Base | Shown by default |
+|---|---|---|
+| `ShinyDeprecationWarning` | `RuntimeWarning`, plus shiny registers `always` for it | yes |
+| `MatplotlibDeprecationWarning` | `DeprecationWarning` | no — hidden outside `__main__` |
+
+The seaborn notices were only ever visible because **pytest enables warnings**
+and because the probe used `simplefilter("always")`, which forces display. A
+test artefact was mistaken for a student experience — the exact error this
+project has been correcting all week, committed while correcting it.
+
+**Kept anyway, honestly labelled.** The filter is harmless insurance for a
+library that starts forcing its own category the way shiny does, or a student
+running `-W always`. The changelog entry now says so instead of claiming a fix.
+
+**The transferable rule.** Two questions, not one: *does this warning exist*,
+and *does the default filter show it to anyone*. `simplefilter("always")`
+answers the first and actively obscures the second.

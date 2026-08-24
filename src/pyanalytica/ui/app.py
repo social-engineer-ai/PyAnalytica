@@ -364,18 +364,25 @@ def _parse_args(argv: list[str] | None = None):
 
 
 def _quiet_library_warnings() -> None:
-    """Hide deprecation notices from libraries we do not control.
+    """Suppress deprecation notices from libraries we do not control.
 
-    Students run this in a terminal and read everything it prints. A first
-    boxplot emits a MatplotlibDeprecationWarning from inside seaborn, and a
-    heatmap a PendingDeprecationWarning -- neither is actionable by them or by
-    us, and both look exactly like an error to someone who has never used a
-    terminal. One student already emailed the course address about a screen of
-    warnings on a completely successful start.
+    Insurance, not a fix for anything students currently see. Verified: with
+    Python's default filters, every common operation -- histogram, boxplot,
+    scatter, heatmap, summarize, pivot, crosstab, t-test, correlation --
+    produces nothing on stderr. MatplotlibDeprecationWarning subclasses
+    DeprecationWarning, which Python hides outside __main__, so the seaborn
+    notices visible under pytest never reach a student's terminal.
 
-    Only the launcher does this, so the warnings still appear under pytest and
-    for anyone importing the package directly. Set PYANALYTICA_WARNINGS=1 to
-    see them here too.
+    What a student did see was ShinyDeprecationWarning, which subclasses
+    RuntimeWarning *and* which shiny registers an "always" filter for, so it
+    displays regardless. That was fixed at source in 0.6.2 by using the
+    renamed decorator; this filter would not have caught it.
+
+    Kept because a library may start forcing its own category the way shiny
+    does, and because a student running with -W always or a dev-mode
+    interpreter would otherwise get a wall of text. Only the launcher applies
+    it: warnings still appear under pytest, still appear when importing the
+    package, and PYANALYTICA_WARNINGS=1 restores them here.
     """
     import os
     import warnings
