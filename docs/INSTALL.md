@@ -286,7 +286,7 @@ Check the terminal window. If it isn't showing the "PyAnalytica is starting" ban
 
 ## If you can't install it
 
-Contact the instructor **in the first week** — not the night before an assignment — if you hit any of these:
+Email **uiucbadm576@gmail.com** **in the first week** — not the night before an assignment — if you hit any of these:
 
 - **Your antivirus blocks the installer or the download.** Some security software quarantines Python or interrupts `pip`, producing errors that look like something else entirely.
 - **You are not an administrator on your computer**, so Step 1 won't complete.
@@ -297,13 +297,18 @@ Contact the instructor **in the first week** — not the night before an assignm
 
 ## Getting help
 
-Ask in the course **Microsoft Teams** channel, and include:
+**Email the course address: uiucbadm576@gmail.com**
+
+Include all four of these — with them, most problems are solved in one reply;
+without them, the first reply is just us asking for them:
 
 1. Windows or Mac
-2. The command you typed
-3. The **complete** error message, copied as text (not a photo of your screen)
+2. Which step you were on
+3. The command you typed
+4. The **complete** error message, copied as text rather than a screenshot
 
-Paste the error as text rather than a screenshot — it can be searched, and
-somebody who hit the same thing last week will find your question.
+To copy the error: select it in the PowerShell or Terminal window, press
+Ctrl+C (Cmd+C on a Mac), and paste it into the email.
 
-That's usually enough to solve it in one reply.
+General discussion happens in the course **Microsoft Teams** channel; installation
+problems go to the email address above so they don't get lost in the chat.
