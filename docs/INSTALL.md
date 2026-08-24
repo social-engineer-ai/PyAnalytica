@@ -4,7 +4,10 @@ You will install two things: **Python**, and then **PyAnalytica** itself. Budget
 
 Follow your operating system's section from top to bottom. Don't skip steps, even ones that look unnecessary — several of them exist to prevent a specific error later.
 
-> **You need a Windows PC or a Mac.** If you hit something that blocks installation entirely, see [If you can't install it](#if-you-cant-install-it) and contact the instructor in the first week.
+> **You need a Windows PC or a Mac.** If you have neither, or something blocks
+> installation, use **UIUC AnyWare** — see [If you can't install it on your own
+> computer](#if-you-cant-install-it-on-your-own-computer). Don't spend an evening
+> fighting your laptop; AnyWare works and takes minutes.
 
 ---
 
@@ -284,16 +287,36 @@ Check the terminal window. If it isn't showing the "PyAnalytica is starting" ban
 
 ---
 
-## If you can't install it
+## If you can't install it on your own computer
 
-Email **uiucbadm576@gmail.com** **in the first week** — not the night before an assignment — if you hit any of these:
+Use **UIUC AnyWare**, the university's virtual Windows desktop, at
+**https://answers.uillinois.edu/illinois/anyware**. It runs in your browser,
+you have the rights to install there, and the steps in this guide work exactly
+as written once you are logged in.
 
-- **Your antivirus blocks the installer or the download.** Some security software quarantines Python or interrupts `pip`, producing errors that look like something else entirely.
-- **You are not an administrator on your computer**, so Step 1 won't complete.
-- **Your Mac is too old** to install Python 3.12. Check **Apple menu → About This Mac** and mention your macOS version when you write.
-- **You only have a Chromebook or iPad.** PyAnalytica needs Windows or macOS.
+Go straight to AnyWare rather than fighting your own machine if any of these
+apply:
 
----
+- **Your antivirus blocks the installer or interrupts `pip`.** Some consumer
+  security software quarantines Python and reports it as something unrelated.
+- **You are not an administrator** on your computer — a family machine set up
+  under someone else's account, for example.
+- **Your Mac is too old** for Python 3.12. Check **Apple menu → About This Mac**.
+- **You only have a Chromebook or an iPad.** AnyWare is the answer here, since
+  PyAnalytica itself needs Windows or macOS.
+
+### Working on AnyWare
+
+Follow the **Windows** section of this guide inside the AnyWare desktop.
+
+**Save your work to a location that persists**, such as your U: drive or
+OneDrive, not the AnyWare desktop itself. Anything left on the virtual machine
+may be gone next time you log in.
+
+> If PyAnalytica is not there when you come back, your session did not keep it.
+> Repeat Steps 5–7 — creating the environment and installing — which takes a
+> few minutes. Email us if this happens every session and we will sort out a
+> better arrangement for you.
 
 ## Getting help
 
