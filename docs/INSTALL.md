@@ -265,11 +265,26 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 You skipped Step 2. Open **Applications → Python 3.12 → Install Certificates.command**, let it finish, then retry the install.
 
-### "pyanalytica: command not found" or "not recognized"
+### "pyanalytica is not recognized" / "command not found"
 
-Your virtual environment isn't active — your prompt is missing the `(.venv)` prefix.
+Almost always the virtual environment is not active — your prompt is missing
+the `(.venv)` prefix.
 
-**Fix:** `cd` back into your `pyanalytica` folder and run the activate command from the section above.
+**Fix:** `cd` back into your `pyanalytica` folder and run the activate command
+from the section above, then try again.
+
+**If you installed without a virtual environment**, you may have seen a yellow
+warning during the install saying the scripts were installed somewhere "which
+is not on PATH". That is this problem: the program is installed, but Windows
+cannot find the name. Either redo Steps 5-7 to use a virtual environment, or
+start it this way, which works regardless of PATH:
+
+```
+python -m pyanalytica
+```
+
+Everything else works the same; `python -m pyanalytica --version` and
+`python -m pyanalytica --port 8001` behave exactly like the short command.
 
 ### The app started on a strange port number
 
