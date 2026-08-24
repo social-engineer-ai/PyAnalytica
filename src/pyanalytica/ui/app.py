@@ -363,10 +363,35 @@ def _parse_args(argv: list[str] | None = None):
     return parser.parse_args(argv)
 
 
+def _quiet_library_warnings() -> None:
+    """Hide deprecation notices from libraries we do not control.
+
+    Students run this in a terminal and read everything it prints. A first
+    boxplot emits a MatplotlibDeprecationWarning from inside seaborn, and a
+    heatmap a PendingDeprecationWarning -- neither is actionable by them or by
+    us, and both look exactly like an error to someone who has never used a
+    terminal. One student already emailed the course address about a screen of
+    warnings on a completely successful start.
+
+    Only the launcher does this, so the warnings still appear under pytest and
+    for anyone importing the package directly. Set PYANALYTICA_WARNINGS=1 to
+    see them here too.
+    """
+    import os
+    import warnings
+
+    if os.environ.get("PYANALYTICA_WARNINGS"):
+        return
+
+    for category in (DeprecationWarning, PendingDeprecationWarning, FutureWarning):
+        warnings.filterwarnings("ignore", category=category)
+
+
 def main(argv: list[str] | None = None):
     """CLI entry point."""
     import shiny
 
+    _quiet_library_warnings()
     args = _parse_args(argv)
     port = _resolve_port(args.host, args.port)
     url = f"http://{args.host}:{port}"
