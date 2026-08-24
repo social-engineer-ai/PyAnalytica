@@ -83,6 +83,11 @@ Press Ctrl+C in this window to stop.
 
 To stop the app, click back on the black window and press **Ctrl+C**.
 
+**The window will fill with technical log lines** — `INFO:` messages, and on a
+Mac possibly `Matplotlib is building the font cache`. That is normal output,
+not errors. **You know it worked if your browser opens the app.** Leave the
+window alone while you work; closing it stops the app.
+
 ### Step 7 — Make a one-click launcher
 
 Do this now and you never type those commands again.
@@ -160,6 +165,11 @@ pyanalytica
 ```
 
 Your browser opens automatically. To stop the app, click back on the Terminal window and press **Control+C**.
+
+**The window will fill with technical log lines** — `INFO:` messages, and on a
+Mac possibly `Matplotlib is building the font cache`. That is normal output,
+not errors. **You know it worked if your browser opens the app.** Leave the
+window alone while you work; closing it stops the app.
 
 ### Step 7 — Make a one-click launcher
 
@@ -307,6 +317,16 @@ To ask for a specific port:
 ```
 pyanalytica --port 8001
 ```
+
+### The window is full of INFO messages or warnings
+
+That is the normal running log, not an error. PyAnalytica prints what it is
+serving while it runs, and Python libraries occasionally print notices of their
+own. **If the app opened in your browser, it is working.**
+
+Errors look different: they stop the app and return you to the prompt. If the
+window still says "PyAnalytica is starting" and the browser tab loads, nothing
+is wrong.
 
 ### The browser shows "can't reach this page"
 

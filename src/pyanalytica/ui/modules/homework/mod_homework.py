@@ -21,6 +21,7 @@ from pyanalytica.homework.loader import (
     load_homework_from_dict,
 )
 from pyanalytica.homework.submission import create_submission
+from pyanalytica.ui.components.downloads import render_download
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +319,7 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
         safe = "".join(c for c in f"{title}_{name}" if c.isalnum() or c in "._-")
         return f"{safe or 'submission'}.html"
 
-    @render.download(filename=_filename)
+    @render_download(filename=_filename)
     def download_submission():
         homework = hw()
         if homework is None:

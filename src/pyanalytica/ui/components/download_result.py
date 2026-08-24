@@ -7,6 +7,7 @@ from typing import Callable
 from shiny import module, render, req, ui
 
 from pyanalytica.data.export import to_csv_bytes
+from pyanalytica.ui.components.downloads import render_download
 
 
 @module.ui
@@ -22,7 +23,7 @@ def download_result_server(
     get_df: Callable,
     filename: str = "result",
 ):
-    @render.download(filename=lambda: f"{filename}.csv")
+    @render_download(filename=lambda: f"{filename}.csv")
     def dl_btn():
         df = get_df()
         req(df is not None)

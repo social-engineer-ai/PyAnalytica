@@ -9,6 +9,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.report_builder import CellType
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.report.export import export_report_html, export_report_jupyter
+from pyanalytica.ui.components.downloads import render_download
 
 
 # Action badge colours (same palette as mod_procedure)
@@ -420,20 +421,20 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
         )
 
     # --- Downloads ---
-    @render.download(filename="report.html")
+    @render_download(filename="report.html")
     def dl_html():
         builder.title = input.rpt_title().strip() or "PyAnalytica Report"
         builder.author = input.rpt_author().strip()
         builder.execute_all(get_current_df())
         yield export_report_html(builder, show_code=input.show_code()).encode("utf-8")
 
-    @render.download(filename="report.ipynb")
+    @render_download(filename="report.ipynb")
     def dl_jupyter():
         builder.title = input.rpt_title().strip() or "PyAnalytica Report"
         builder.author = input.rpt_author().strip()
         yield export_report_jupyter(builder).encode("utf-8")
 
-    @render.download(filename="report.json")
+    @render_download(filename="report.json")
     def dl_json():
         builder.title = input.rpt_title().strip() or "PyAnalytica Report"
         builder.author = input.rpt_author().strip()

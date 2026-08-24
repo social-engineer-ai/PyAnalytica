@@ -8,6 +8,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.procedure import ProcedureRecorder
 from pyanalytica.core.state import WorkbenchState
+from pyanalytica.ui.components.downloads import render_download
 
 
 # Action badge colours (same palette as mod_notebook)
@@ -389,7 +390,7 @@ def procedure_server(input, output, session, state: WorkbenchState, get_current_
         return ui.tags.div(ui.h5(f"Procedure Steps ({total})"), *cards)
 
     # --- Export handlers ---
-    @render.download(filename="procedure.json")
+    @render_download(filename="procedure.json")
     def export_json():
         proc = built_procedure()
         if proc is None:
@@ -399,7 +400,7 @@ def procedure_server(input, output, session, state: WorkbenchState, get_current_
             )
         yield ProcedureRecorder.export_json(proc).encode("utf-8")
 
-    @render.download(filename="procedure.py")
+    @render_download(filename="procedure.py")
     def export_python():
         proc = built_procedure()
         if proc is None:
@@ -409,7 +410,7 @@ def procedure_server(input, output, session, state: WorkbenchState, get_current_
             )
         yield ProcedureRecorder.export_python(proc).encode("utf-8")
 
-    @render.download(filename="procedure.ipynb")
+    @render_download(filename="procedure.ipynb")
     def export_jupyter():
         proc = built_procedure()
         if proc is None:

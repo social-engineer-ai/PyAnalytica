@@ -11,6 +11,7 @@ from pyanalytica.report.export import (
     export_jupyter_bytes,
     export_python_script,
 )
+from pyanalytica.ui.components.downloads import render_download
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +217,7 @@ def notebook_server(input, output, session, state: WorkbenchState, get_current_d
     # ------------------------------------------------------------------
     # Download handler
     # ------------------------------------------------------------------
-    @render.download(filename=lambda: _export_filename())
+    @render_download(filename=lambda: _export_filename())
     def download_report():
         fmt = input.export_format()
         if fmt == "html":

@@ -6,6 +6,7 @@ from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.data.export import to_csv_bytes, to_excel_bytes
+from pyanalytica.ui.components.downloads import render_download
 
 
 @module.ui
@@ -38,7 +39,7 @@ def export_server(input, output, session, state: WorkbenchState, get_current_df)
         req(df is not None)
         return render.DataGrid(df.head(50), height="400px")
 
-    @render.download(filename=lambda: f"data.{input.format()}" if input.format() == "csv" else "data.xlsx")
+    @render_download(filename=lambda: f"data.{input.format()}" if input.format() == "csv" else "data.xlsx")
     def download_btn():
         df = get_current_df()
         req(df is not None)
