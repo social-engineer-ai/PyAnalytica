@@ -100,13 +100,23 @@ notepad %USERPROFILE%\Documents\pyanalytica\start-pyanalytica.bat
 
 **2.** Notepad says the file doesn't exist and asks whether to create it. Click **Yes**.
 
-**3.** Copy these five lines and paste them into Notepad:
+**3.** Copy these lines and paste them into Notepad:
 
 ```
 @echo off
+title PyAnalytica - leave this window open
 cd /d %~dp0
 call .venv\Scripts\activate.bat
+echo.
+echo  ---------------------------------------------------------------
+echo   This window IS PyAnalytica. Leave it open while you work.
+echo   You can minimise it - just do not close it.
+echo   When you have finished, close it or press Ctrl+C to stop.
+echo  ---------------------------------------------------------------
+echo.
 pyanalytica
+echo.
+echo  PyAnalytica has stopped. You can close this window.
 pause
 ```
 
@@ -116,7 +126,11 @@ From now on, open **Documents → pyanalytica** and **double-click `start-pyanal
 
 > Running the `notepad ...` command in step 1 matters: it creates the file with the right name immediately. If you instead open Notepad and use *Save As*, Notepad quietly adds `.txt` to the end and the file will not run.
 
-**Optional:** right-click the file, choose **Show more options → Send to → Desktop (create shortcut)**, and it's one click away.
+**Optional — put it on the Desktop and start it minimised.** Right-click
+`start-pyanalytica.bat` → **Show more options → Send to → Desktop (create
+shortcut)**. Then right-click the new Desktop shortcut → **Properties** → set
+**Run:** to **Minimised** → **OK**. Now one click starts PyAnalytica, the black
+window goes straight to the taskbar, and your browser is the only thing you see.
 
 ---
 
@@ -180,12 +194,20 @@ touch ~/Documents/pyanalytica/start-pyanalytica.command
 open -e ~/Documents/pyanalytica/start-pyanalytica.command
 ```
 
-**2.** TextEdit opens. Paste these four lines:
+**2.** TextEdit opens. Paste these lines:
 
 ```bash
 #!/bin/bash
+printf '\033]0;PyAnalytica — leave this window open\007'
 cd "$(dirname "$0")"
 source .venv/bin/activate
+echo
+echo "  ---------------------------------------------------------------"
+echo "   This window IS PyAnalytica. Leave it open while you work."
+echo "   You can minimise it — just do not close it."
+echo "   When you have finished, press Ctrl+C to stop."
+echo "  ---------------------------------------------------------------"
+echo
 pyanalytica
 ```
 
@@ -224,6 +246,21 @@ cd ~/Documents/pyanalytica
 source .venv/bin/activate
 pyanalytica
 ```
+
+### About the black window
+
+That window is not a leftover from starting the app — **it is the app**.
+PyAnalytica runs a small web server there, and your browser is just the screen
+it draws on.
+
+- **Leave it open** for as long as you are working. Minimise it if it is in the
+  way.
+- **Closing it stops PyAnalytica.** The browser tab will stop responding.
+- **To stop deliberately:** close the window, or click it and press **Ctrl+C**.
+- If something goes wrong, the explanation is usually in that window — copy the
+  text into your email to the course address.
+
+You do not need to type anything into it. It is safe to ignore.
 
 ---
 

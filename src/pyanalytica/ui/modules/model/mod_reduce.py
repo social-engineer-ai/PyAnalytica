@@ -23,6 +23,7 @@ def reduce_ui():
             ui.input_action_button("run_btn", "Run PCA", class_="btn-primary w-100 mt-2"),
             width=300,
         ),
+        ui.output_ui("guidance"),
         ui.output_ui("pca_summary"),
         ui.output_plot("scree_plot", height="350px"),
         ui.output_plot("biplot", height="400px"),
@@ -51,7 +52,14 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
         df = get_current_df()
         req(df is not None)
         features = list(input.features())
-        req(len(features) >= 2)
+        # See mod_cluster: req() here aborted the run without a word, so
+        # picking one feature -- or none -- looked like a broken button.
+        # Clearing the result matters especially here, because deselecting
+        # everything and pressing Run used to leave the previous PCA on
+        # screen, which reads as a fresh answer to a question nobody asked.
+        if len(features) < 2:
+            result.set(None)
+            return
         try:
             r = pca_analysis(df, features)
             result.set(r)
@@ -59,6 +67,38 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
+
+    @render.ui
+    def guidance():
+        df = get_current_df()
+        if df is None:
+            return ui.div(
+                ui.tags.strong("No dataset loaded. "),
+                "Open Data > Load and choose a dataset first.",
+                class_="alert alert-info",
+            )
+
+        chosen = list(input.features())
+        if len(chosen) >= 2:
+            return ui.TagList()
+
+        available = len(get_numeric_columns(df))
+        if available < 2:
+            return ui.div(
+                ui.tags.strong("Cannot run PCA: "),
+                f"this dataset has {available} numeric column"
+                f"{'' if available == 1 else 's'}. PCA summarises several "
+                f"columns at once, so it needs at least two.",
+                class_="alert alert-warning",
+            )
+
+        return ui.div(
+            ui.tags.strong("Choose at least two features. "),
+            "PCA looks for patterns shared across columns, so a single column "
+            "has nothing to share a pattern with. Hold Ctrl (Cmd on a Mac) to "
+            "select more than one.",
+            class_="alert alert-info",
+        )
 
     @render.ui
     def pca_summary():

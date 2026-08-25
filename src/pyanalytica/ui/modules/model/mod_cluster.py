@@ -26,6 +26,7 @@ def cluster_ui():
             ui.input_action_button("run_btn", "Run Clustering", class_="btn-primary w-100 mt-2"),
             width=300,
         ),
+        ui.output_ui("guidance"),
         ui.output_ui("cluster_summary"),
         ui.output_plot("elbow_plot", height="350px"),
         ui.output_plot("scatter_plot", height="350px"),
@@ -53,7 +54,14 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
         df = get_current_df()
         req(df is not None)
         features = list(input.features())
-        req(len(features) >= 2)
+        # Was req(len(features) >= 2), which aborts the run silently. A student
+        # who picked one variable and pressed Run saw nothing happen and no
+        # reason why -- reported as "Cluster does not work". Clear any earlier
+        # result too, so a refused run cannot leave the previous run's charts
+        # on screen looking like the answer to what was just asked.
+        if len(features) < 2:
+            result.set(None)
+            return
         try:
             if input.method() == "kmeans":
                 r = kmeans_cluster(df, features, chosen_k=input.n_clusters())
@@ -64,6 +72,39 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
             last_code.set(r.code.code)
         except Exception as e:
             ui.notification_show(f"Error: {e}", type="error")
+
+    @render.ui
+    def guidance():
+        df = get_current_df()
+        if df is None:
+            return ui.div(
+                ui.tags.strong("No dataset loaded. "),
+                "Open Data > Load and choose a dataset first.",
+                class_="alert alert-info",
+            )
+
+        chosen = list(input.features())
+        if len(chosen) >= 2:
+            return ui.TagList()
+
+        available = len(get_numeric_columns(df))
+        if available < 2:
+            return ui.div(
+                ui.tags.strong("Cannot cluster: "),
+                f"this dataset has {available} numeric column"
+                f"{'' if available == 1 else 's'}. Clustering groups rows by "
+                f"how close they are across several measurements, so it needs "
+                f"at least two.",
+                class_="alert alert-warning",
+            )
+
+        return ui.div(
+            ui.tags.strong("Choose at least two features. "),
+            "Clustering groups rows by how close they are to each other, and "
+            "closeness needs more than one measurement to be meaningful. "
+            "Hold Ctrl (Cmd on a Mac) to select more than one.",
+            class_="alert alert-info",
+        )
 
     @render.ui
     def cluster_summary():

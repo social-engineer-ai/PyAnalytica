@@ -368,3 +368,103 @@ class TestModelSaving:
         assert any("Survived" in o for o in options), (
             f"running a classifier left Evaluate with nothing usable; got {options}"
         )
+
+
+class TestClusterAndReduceExplainThemselves:
+    """Reported as "Cluster and Reduce are not working".
+
+    Both needed two or more features and enforced it with req(), which aborts
+    the run without a word. Picking one variable and pressing Run produced
+    nothing at all: no chart, no message, no error in the console. The button
+    looked broken. The multi-select makes this the *likely* first experience,
+    not an edge case -- clicking a second variable deselects the first unless
+    you hold Ctrl, and nothing on screen said so.
+
+    The happy-path tests passed throughout, because they always selected two.
+    """
+
+    def _guidance(self, page, mod: str) -> str:
+        return page.locator(_sid(mod, "guidance")).inner_text().strip()
+
+    def test_cluster_with_one_feature_says_why(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Cluster")
+        _wait_stable(page, 2500)
+        _select_multiple(page, _sid("cluster", "features"), ["Age"])
+        _click_button(page, _sid("cluster", "run_btn"))
+        _wait_stable(page, 3500)
+
+        text = self._guidance(page, "cluster")
+        assert text, "one feature produced no clusters and no explanation"
+        assert "two" in text.lower(), f"the message should say how many are needed; got {text!r}"
+        assert "ctrl" in text.lower() or "cmd" in text.lower(), (
+            "a plain multi-select needs Ctrl/Cmd to pick more than one, and the "
+            f"message is the only place a student learns that; got {text!r}"
+        )
+
+    def test_reduce_with_one_feature_says_why(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Reduce")
+        _wait_stable(page, 2500)
+        _select_multiple(page, _sid("reduce", "features"), ["Age"])
+        _click_button(page, _sid("reduce", "run_btn"))
+        _wait_stable(page, 3500)
+
+        text = self._guidance(page, "reduce")
+        assert text and "two" in text.lower(), (
+            f"one feature produced no PCA and no usable explanation; got {text!r}"
+        )
+
+    def test_cluster_still_runs_on_two_features(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Cluster")
+        _wait_stable(page, 2500)
+        _select_multiple(page, _sid("cluster", "features"), ["Age", "Fare"])
+        _click_button(page, _sid("cluster", "run_btn"))
+        _wait_stable(page, 6000)
+
+        assert not self._guidance(page, "cluster"), "guidance should clear once the run is valid"
+        _assert_output_has_content(page, _sid("cluster", "profiles"), kind="table")
+        assert page.locator(f"{_sid('cluster', 'scatter_plot')} img").count()
+        _assert_no_shiny_errors(page)
+
+    def test_reduce_still_runs_on_several_features(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Reduce")
+        _wait_stable(page, 2500)
+        _select_multiple(page, _sid("reduce", "features"), ["Age", "Fare", "Pclass", "SibSp"])
+        _click_button(page, _sid("reduce", "run_btn"))
+        _wait_stable(page, 6000)
+
+        assert not self._guidance(page, "reduce")
+        _assert_output_has_content(page, _sid("reduce", "loadings"), kind="table")
+        assert page.locator(f"{_sid('reduce', 'scree_plot')} img").count(), "no scree plot"
+        _assert_no_shiny_errors(page)
+
+    def test_a_refused_run_clears_the_previous_result(self, page):
+        """The nastier half of the bug.
+
+        Run a valid PCA, deselect everything, press Run: the old charts stayed
+        on screen. A student reads that as the answer to what they just asked,
+        which makes it a wrong-number bug rather than a cosmetic one.
+        """
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Reduce")
+        _wait_stable(page, 2500)
+        _select_multiple(page, _sid("reduce", "features"), ["Age", "Fare", "Pclass"])
+        _click_button(page, _sid("reduce", "run_btn"))
+        _wait_stable(page, 6000)
+        assert page.locator(f"{_sid('reduce', 'scree_plot')} img").count()
+
+        page.evaluate(
+            "() => {const s=document.querySelector('#reduce-features');"
+            "[...s.options].forEach(o=>o.selected=false);"
+            "s.dispatchEvent(new Event('change',{bubbles:true}));}"
+        )
+        _click_button(page, _sid("reduce", "run_btn"))
+        _wait_stable(page, 3500)
+
+        assert not page.locator(f"{_sid('reduce', 'scree_plot')} img").count(), (
+            "the previous PCA stayed on screen after a refused run"
+        )
+        assert self._guidance(page, "reduce"), "nothing explained why the run was refused"
