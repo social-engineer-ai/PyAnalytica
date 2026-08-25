@@ -212,9 +212,12 @@ def practice_server(input, output, session, state: WorkbenchState, get_current_d
             _register_feedback(q.id)
 
     def _register_check(qid: str) -> None:
+        # No qid=qid default: this closure already captures the factory's qid,
+        # and Shiny warns about a parameter it can never supply -- a UserWarning,
+        # which unlike DeprecationWarning is shown to students by default.
         @reactive.effect
         @reactive.event(getattr(input, f"check_{qid}"))
-        def _check(qid=qid):
+        def _check():
             drill = current()
             if drill is None:
                 return
@@ -247,7 +250,7 @@ def practice_server(input, output, session, state: WorkbenchState, get_current_d
     def _register_hint(qid: str) -> None:
         @reactive.effect
         @reactive.event(getattr(input, f"hint_{qid}"))
-        def _hint(qid=qid):
+        def _hint():
             drill = current()
             if drill is None:
                 return
@@ -264,7 +267,7 @@ def practice_server(input, output, session, state: WorkbenchState, get_current_d
         # updated the score and showed the student nothing.
         @output(id=f"fb_{qid}")
         @render.ui
-        def _fb(qid=qid):
+        def _fb():
             text = feedback().get(qid, "")
             return ui.HTML(f'<div class="mt-2 small">{text}</div>') if text else ui.TagList()
 

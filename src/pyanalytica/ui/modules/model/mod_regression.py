@@ -7,7 +7,7 @@ from datetime import datetime
 from shiny import module, reactive, render, req, ui
 
 from pyanalytica.core import round_df
-from pyanalytica.core.model_store import ModelArtifact
+from pyanalytica.core.model_store import ModelArtifact, default_model_name
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.regression import linear_regression
@@ -76,24 +76,29 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
             state.codegen.record(r.code, action="model", description="Linear regression")
             last_code.set(r.code.code)
 
-            # Save model artifact
-            model_name = input.model_name().strip()
-            if model_name:
-                artifact = ModelArtifact(
-                    name=model_name,
-                    model_type="linear_regression",
-                    model=r.model,
-                    feature_names=r.feature_names,
-                    target_name=target,
-                    created_at=datetime.now(),
-                    X_train=r.X_train,
-                    X_test=r.X_test,
-                    y_train=r.y_train,
-                    y_test=r.y_test,
-                )
-                state.model_store.save(model_name, artifact)
-                state._notify()
-                ui.notification_show(f"Model '{model_name}' saved.", type="message")
+            # Save the model. Always -- an empty "Save Model As" box used to
+            # mean nothing was saved and nothing was said, which left Evaluate
+            # and Predict permanently empty for no visible reason.
+            model_name = input.model_name().strip() or default_model_name("linear_regression", target)
+            artifact = ModelArtifact(
+                name=model_name,
+                model_type="linear_regression",
+                model=r.model,
+                feature_names=r.feature_names,
+                target_name=target,
+                created_at=datetime.now(),
+                X_train=r.X_train,
+                X_test=r.X_test,
+                y_train=r.y_train,
+                y_test=r.y_test,
+            )
+            state.model_store.save(model_name, artifact)
+            state._notify()
+            ui.notification_show(
+                f"Model saved as '{model_name}'. Open it under "
+                f"Model > Evaluate or Model > Predict.",
+                type="message",
+            )
 
             # Save train/test splits as datasets
             if input.save_splits():

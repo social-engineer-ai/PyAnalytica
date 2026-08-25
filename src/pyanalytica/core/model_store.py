@@ -61,3 +61,16 @@ class ModelStore:
 
     def __contains__(self, name: str) -> bool:
         return name in self._models
+
+
+def default_model_name(model_type: str, target: str) -> str:
+    """A name to save under when the student did not type one.
+
+    "Save Model As" is empty by default, and both Regression and Classify only
+    saved when it was filled in -- so running a model saved nothing, said
+    nothing, and Evaluate and Predict stayed empty with no explanation. Naming
+    it automatically means a model always exists to evaluate; re-running with
+    the same settings replaces it, which is what re-running should do.
+    """
+    safe_target = "".join(c if c.isalnum() else "_" for c in str(target)).strip("_")
+    return f"{model_type}_{safe_target}" if safe_target else model_type

@@ -300,3 +300,71 @@ class TestPracticeDrills:
         _click_button(page, _sid("practice", "reset"))
         _wait_stable(page, 1500)
         assert not page.locator(_sid("practice", "score_panel")).inner_text().strip()
+
+
+class TestModelSaving:
+    """Running a model must leave something for Evaluate and Predict to use.
+
+    Both modules only saved when the "Save Model As" box had been typed into,
+    and it is empty by default — so running a regression saved nothing, said
+    nothing, and Evaluate stayed permanently empty. Reported by the instructor,
+    not by a test, because nothing covered this path.
+    """
+
+    def _run_regression(self, page, name: str = "") -> None:
+        _nav_to(page, "Model", "Regression")
+        _wait_stable(page, 2500)
+        _select_option(page, _sid("regression", "target"), "Fare")
+        _select_multiple(page, _sid("regression", "features"), ["Age", "Pclass"])
+        if name:
+            page.locator(_sid("regression", "model_name")).fill(name)
+        _click_button(page, _sid("regression", "run_btn"))
+        _wait_stable(page, 5000)
+
+    def test_regression_saves_without_being_named(self, page):
+        _load_bundled(page, "titanic")
+        self._run_regression(page)
+
+        _nav_to(page, "Model", "Evaluate")
+        _wait_stable(page, 2500)
+        options = [
+            o.strip()
+            for o in page.locator(f"{_sid('evaluate', 'model_name')} option").all_inner_texts()
+            if o.strip()
+        ]
+        assert options, "running a regression left Evaluate with no model to choose"
+        assert any("Fare" in o for o in options), (
+            f"the saved model should be named after its target; got {options}"
+        )
+
+    def test_a_typed_name_is_respected(self, page):
+        _load_bundled(page, "titanic")
+        self._run_regression(page, name="my_regression")
+
+        _nav_to(page, "Model", "Evaluate")
+        _wait_stable(page, 2500)
+        options = [
+            o.strip()
+            for o in page.locator(f"{_sid('evaluate', 'model_name')} option").all_inner_texts()
+        ]
+        assert "my_regression" in options
+
+    def test_classify_saves_too(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Classify")
+        _wait_stable(page, 2500)
+        _select_option(page, _sid("classify", "target"), "Survived")
+        _select_multiple(page, _sid("classify", "features"), ["Age", "Fare"])
+        _click_button(page, _sid("classify", "run_btn"))
+        _wait_stable(page, 6000)
+
+        _nav_to(page, "Model", "Evaluate")
+        _wait_stable(page, 2500)
+        options = [
+            o.strip()
+            for o in page.locator(f"{_sid('evaluate', 'model_name')} option").all_inner_texts()
+            if o.strip()
+        ]
+        assert any("Survived" in o for o in options), (
+            f"running a classifier left Evaluate with nothing usable; got {options}"
+        )
