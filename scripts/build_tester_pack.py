@@ -33,13 +33,16 @@ Thanks for testing PyAnalytica. Everything you need is in this folder.
 | File | What it's for |
 |---|---|
 | **INSTALL.md** | Install instructions. Do this first. |
-| **TEST-PASS.md** | The actual testing. Ten sessions, about 4 hours. |
+| **ROUND-2.md** | **Start here if you tested before.** The parts nobody has opened: Model, Report, and a break-it session. About 2 hours. |
+| **TEST-PASS.md** | The original full pass, ten sessions, about 4 hours. Only if you are new to this. |
 | **BUG-LOG.csv** | Open in Excel. Record every problem here. |
 | **data/** | Files you'll need part way through. Leave them where they are. |
 
 ## What to do
 
-1. Read **INSTALL.md** and install the software. Allow about 30 minutes.
+1. **Already tested before?** Update to the current version (the first page of
+   ROUND-2.md says how) and work through **ROUND-2.md** instead of TEST-PASS.md.
+   New to this? Read **INSTALL.md** and install first, allow 30 minutes.
 2. Open **BUG-LOG.csv** in Excel and leave it open all session.
 3. Work through **TEST-PASS.md** from Session 1. Don't skip ahead.
 4. Take a break between sessions — it's a long list and tired testers miss things.
@@ -93,6 +96,14 @@ def main() -> None:
     # --- documents, renamed for a reader who has never seen the repo ---
     install = (ROOT / "docs" / "INSTALL.md").read_text(encoding="utf-8")
     (STAGE / "INSTALL.md").write_text(install, encoding="utf-8")
+
+    round2 = ROOT / "docs" / "TESTER_ROUND2.md"
+    if round2.exists():
+        text = round2.read_text(encoding="utf-8").replace(
+            "Ask for `hw1_tips.yaml` if you do not have it.",
+            "Use `hw1_tips.yaml` from the **data** folder.",
+        )
+        (STAGE / "ROUND-2.md").write_text(text, encoding="utf-8")
 
     test_pass = (ROOT / "docs" / "TESTER_FULL.md").read_text(encoding="utf-8")
     # Inside the pack the data files sit in data/, not examples/tester_files/.
