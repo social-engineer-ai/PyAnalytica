@@ -13,7 +13,7 @@ Terminal (Mac), then:
 ```
 cd /d %USERPROFILE%\Documents\pyanalytica
 .venv\Scripts\activate.bat
-pip install --upgrade pyanalytica==0.6.3
+pip install --upgrade pyanalytica==0.6.4
 pyanalytica --version
 ```
 
@@ -22,11 +22,11 @@ pyanalytica --version
 ```bash
 cd ~/Documents/pyanalytica
 source .venv/bin/activate
-pip install --upgrade pyanalytica==0.6.3
+pip install --upgrade pyanalytica==0.6.4
 pyanalytica --version
 ```
 
-It should print `pyanalytica 0.6.3`. Then start it as usual — double-click your
+It should print `pyanalytica 0.6.4`. Then start it as usual — double-click your
 launcher if you made one.
 
 ## What changed since you last looked

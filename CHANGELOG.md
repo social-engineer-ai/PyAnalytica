@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-08-25
+
+Four bugs that reached real people, and the sweep behind them. Every item here
+was reported by someone using the app, not found by a test.
+
+### Fixed
+
+- **A trained model is now always saved.** Regression and Classify only saved
+  when the "Save Model As" box had been typed into, and it is empty by default.
+  So running a model saved nothing, said nothing, and Model > Evaluate and
+  Model > Predict stayed permanently empty with no explanation. Models are now
+  named after their type and target when the box is blank -- `linear_regression_Fare`,
+  `logistic_Survived` -- and the confirmation says where to find them.
+
+- **Cluster and Reduce explain why they will not run.** Both needed two or more
+  features and enforced it with `req()`, which aborts without a word: picking
+  one variable and pressing Run produced no chart, no message and no error.
+  Reported as "cluster and reduce are not working", which is exactly how it
+  looked. The Features control is a plain multi-select, so clicking a second
+  variable deselects the first unless you hold Ctrl -- and nothing said so.
+  Both now explain themselves, and name the Ctrl/Cmd trick.
+
+- **A refused run no longer leaves the previous result on screen.** Running a
+  PCA, deselecting everything, and pressing Run again kept the old scree plot
+  and loadings displayed, which reads as the answer to what was just asked.
+
+- **No button refuses in silence anywhere.** The three reports above were one
+  bug in three places, so every `req()` in the UI was classified by what
+  triggers it: 48 sat inside handlers fired by a button press, across 21
+  modules, and every one could abort without a word. All 48 now explain
+  themselves. The 53 render guards, where an empty region before the first run
+  is honest, are unchanged.
+
+- **Model > Regression and Classify no longer leak pandas internals on the
+  first click.** Target and Features are populated from the same column list,
+  so the first column starts selected in both, and pressing Run immediately
+  produced `Expected unique column names, got: 'Survived' 2 times`. The target
+  is now dropped from the features with a note, or explained when it was the
+  only one.
+
+- **Three `UserWarning`s no longer print on every start.** The Practice module
+  passed `qid=qid` into per-question callbacks that are already closed over a
+  per-question factory, and Shiny warns about a parameter it cannot supply.
+  Unlike the `DeprecationWarning`s of 0.6.3, `UserWarning` *is* shown to
+  students by default -- these were the warnings actually reaching them, and
+  the filter added in 0.6.3 would not have caught them.
+
+### Changed
+
+- The launcher window now names itself and explains that it is the app, can be
+  minimised, and must not be closed. `docs/INSTALL.md` documents starting it
+  minimised via the Desktop shortcut's **Run: Minimised** property, in
+  preference to hiding it with `pythonw` or a `.vbs` wrapper -- an invisible
+  server is one a student cannot stop, and reclaiming the port would mean Task
+  Manager.
+
+### Added
+
+- `tests/test_ui/test_no_silent_refusals.py` -- a source-level rule over all 30
+  UI modules forbidding a bare `req()` inside a `@reactive.event` handler, plus
+  a companion asserting the messages are real sentences. Browser tests could
+  not catch this class of bug: every one of them selects valid inputs first, so
+  they exercise the path that works. The static rule also covers the modules
+  nobody has written a browser test for at all.
+- `docs/TEST_PLAN_INSTRUCTOR.md` -- an acceptance pass weighted towards what
+  automation is structurally blind to: whether the numbers are actually right,
+  what the console prints, and the screens nothing has ever opened.
+- Browser coverage for Model > Evaluate, which had none, and for every refusal
+  path above. 829 unit tests, 65 browser tests.
+
 ## [0.6.3] - 2026-08-24
 
 ### Added
