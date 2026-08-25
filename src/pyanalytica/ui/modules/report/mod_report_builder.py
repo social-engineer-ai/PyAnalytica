@@ -10,6 +10,7 @@ from pyanalytica.core.report_builder import CellType
 from pyanalytica.core.state import WorkbenchState
 from pyanalytica.report.export import export_report_html, export_report_jupyter
 from pyanalytica.ui.components.downloads import render_download
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 
 
 # Action badge colours (same palette as mod_procedure)
@@ -374,7 +375,8 @@ def report_builder_server(input, output, session, state: WorkbenchState, get_cur
     @reactive.event(input.import_json)
     def _import_json():
         file_info = input.import_json()
-        req(file_info)
+        if not require(file_info, "Choose a report file to import first."):
+            return
         try:
             path = file_info[0]["datapath"]
             with open(path, "r", encoding="utf-8") as f:

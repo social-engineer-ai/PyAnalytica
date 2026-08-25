@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.analyze.correlation import correlation_test
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -48,9 +49,15 @@ def correlation_server(input, output, session, state: WorkbenchState, get_curren
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         x, y = input.x(), input.y()
-        req(x, y)
+        if not require(
+            x and y,
+            "Choose both variables. A correlation measures how two columns move "
+            "together, so it needs an X and a Y.",
+        ):
+            return
         try:
             r = correlation_test(df, x, y, method=input.method(), alternative=input.alternative())
             result.set(r)

@@ -13,6 +13,7 @@ from pyanalytica.analyze.proportions import (
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -120,7 +121,8 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         tt = input.test_type()
 
         try:
@@ -129,7 +131,11 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
                 success = input.op_success()
                 p0 = input.op_p0()
                 alt = input.alternative()
-                req(var, success)
+                if not require(
+                    var and success,
+                    "Choose the variable and which of its values counts as a success.",
+                ):
+                    return
                 r = one_proportion_ztest(df, var, success, p0=p0, alternative=alt)
                 last_result.set(r)
                 last_test_type.set("one_prop")
@@ -142,7 +148,12 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
                 success = input.tp_success()
                 group = input.tp_group()
                 alt = input.alternative()
-                req(var, success, group)
+                if not require(
+                    var and success and group,
+                    "Choose the variable, which value counts as a success, and the "
+                    "column that splits the two groups.",
+                ):
+                    return
                 r = two_proportion_ztest(df, var, success, group, alternative=alt)
                 last_result.set(r)
                 last_test_type.set("two_prop")
@@ -152,7 +163,8 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
 
             elif tt == "independence":
                 row, col = input.row_var(), input.col_var()
-                req(row, col)
+                if not require(row and col, "Choose both variables to test for independence."):
+                    return
                 r = chi_square_test(df, row, col)
                 last_result.set(r)
                 last_test_type.set("independence")
@@ -162,7 +174,8 @@ def proportions_server(input, output, session, state: WorkbenchState, get_curren
 
             else:  # goodness_of_fit
                 var = input.gof_var()
-                req(var)
+                if not require(var, "Choose the variable whose category counts you want to test."):
+                    return
                 probs_str = input.expected_probs().strip()
                 expected = None
                 if probs_str:

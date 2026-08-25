@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.visualize.correlate import correlation_matrix, pair_plot
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -58,12 +59,17 @@ def correlate_server(input, output, session, state: WorkbenchState, get_current_
     @reactive.event(input.run_btn)
     def chart():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         cols = list(input.cols())
-        # Was req(len(cols) >= 2), which aborts the render silently: a tester
-        # selecting one column saw nothing happen and no reason why. The
-        # guidance output below explains it instead.
-        req(len(cols) >= 2)
+        # Was a bare req(len(cols) >= 2), which aborts the render silently: a
+        # tester selecting one column saw nothing happen and no reason why. The
+        # guidance output below is the persistent explanation; require() adds
+        # the reply to the button press itself.
+        req(require(
+            len(cols) >= 2,
+            "Choose at least two columns. Hold Ctrl (Cmd on a Mac) to select "
+            "more than one.",
+        ))
         ct = input.chart_type()
 
         if ct == "correlation_matrix":

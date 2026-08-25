@@ -9,6 +9,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import ColumnType, classify_column, get_groupable_columns
 from pyanalytica.visualize.distribute import bar_chart, boxplot, histogram, violin
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -81,9 +82,9 @@ def distribute_server(input, output, session, state: WorkbenchState, get_current
     @reactive.event(input.run_btn)
     def chart_or_message():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         col = input.col()
-        req(col)
+        req(require(col, "Choose a column to show the distribution of."))
         ct = input.chart_type()
 
         # Validate: histogram/boxplot/violin need numeric columns

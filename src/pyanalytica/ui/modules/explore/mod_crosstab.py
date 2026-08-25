@@ -11,6 +11,7 @@ from pyanalytica.explore.crosstab import create_crosstab
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -57,10 +58,10 @@ def crosstab_server(input, output, session, state: WorkbenchState, get_current_d
     @reactive.event(input.run_btn)
     def result():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         row = input.row_var()
         col = input.col_var()
-        req(row)
+        req(require(row, "Choose a Rows variable to tabulate."))
 
         normalize = input.normalize() or None
         ct_result = create_crosstab(df, row, col_var=col or None, normalize=normalize, margins=input.margins())

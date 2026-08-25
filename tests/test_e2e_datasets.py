@@ -468,3 +468,49 @@ class TestClusterAndReduceExplainThemselves:
             "the previous PCA stayed on screen after a refused run"
         )
         assert self._guidance(page, "reduce"), "nothing explained why the run was refused"
+
+
+class TestFirstClickOnAModelTab:
+    """Open Model > Regression and press Run without changing anything.
+
+    Target and Features are populated from the same column list, so the first
+    column starts selected in both. Pressing Run used to hand the student a raw
+    pandas message -- "Expected unique column names, got: 'Survived' 2 times" --
+    which explains nothing about what they did wrong.
+    """
+
+    def _first_click(self, page, sub: str, mod: str) -> str:
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", sub)
+        _wait_stable(page, 2500)
+        _click_button(page, _sid(mod, "run_btn"))
+        _wait_stable(page, 6000)
+        notes = page.locator(".shiny-notification")
+        return " ".join(notes.all_inner_texts()) if notes.count() else ""
+
+    def test_regression_never_shows_the_raw_pandas_message(self, page):
+        said = self._first_click(page, "Regression", "regression")
+        assert "Expected unique column names" not in said, (
+            f"pandas internals reached the student: {said!r}"
+        )
+
+    def test_classify_never_shows_the_raw_pandas_message(self, page):
+        said = self._first_click(page, "Classify", "classify")
+        assert "Expected unique column names" not in said, (
+            f"pandas internals reached the student: {said!r}"
+        )
+
+    def test_a_target_chosen_as_its_own_feature_is_explained(self, page):
+        _load_bundled(page, "titanic")
+        _nav_to(page, "Model", "Regression")
+        _wait_stable(page, 2500)
+        _select_option(page, _sid("regression", "target"), "Fare")
+        _select_multiple(page, _sid("regression", "features"), ["Fare"])
+        _click_button(page, _sid("regression", "run_btn"))
+        _wait_stable(page, 4000)
+
+        said = " ".join(page.locator(".shiny-notification").all_inner_texts()).lower()
+        assert said, "using the target as its only feature produced no message"
+        assert "itself" in said or "different feature" in said, (
+            f"the message should say why this cannot work; got {said!r}"
+        )

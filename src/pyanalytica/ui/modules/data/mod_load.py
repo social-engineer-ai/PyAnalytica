@@ -10,6 +10,7 @@ from pyanalytica.data.load import load_bundled, load_csv, load_from_bytes, load_
 from pyanalytica.datasets import list_datasets
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 
 from datetime import datetime
 
@@ -59,11 +60,13 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
         try:
             if src == "bundled":
                 name = input.bundled_name()
-                req(name)
+                if not require(name, "Choose a dataset from the list first."):
+                    return
                 df, snippet = load_bundled(name)
             elif src == "upload":
                 file_info = input.file_upload()
-                req(file_info)
+                if not require(file_info, "Choose a file to upload first."):
+                    return
                 f = file_info[0]
                 name = f["name"].rsplit(".", 1)[0]
                 with open(f["datapath"], "rb") as fh:
@@ -72,7 +75,8 @@ def load_server(input, output, session, state: WorkbenchState, get_current_df):
             elif src == "url":
                 url = input.data_url()
                 name = input.url_name() or "url_data"
-                req(url)
+                if not require(url, "Paste the address of a CSV file first."):
+                    return
                 df, snippet = load_url(url)
             else:
                 return

@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_groupable_columns, get_numeric_columns
 from pyanalytica.visualize.relate import hexbin, scatter
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -70,9 +71,9 @@ def relate_server(input, output, session, state: WorkbenchState, get_current_df)
     @reactive.event(input.run_btn)
     def chart():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         x, y = input.x(), input.y()
-        req(x, y)
+        req(require(x and y, "Choose both an X and a Y variable to plot against each other."))
 
         color = input.color_by() or None
         size = input.size_by() or None

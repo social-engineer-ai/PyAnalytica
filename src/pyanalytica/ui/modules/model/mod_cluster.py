@@ -9,6 +9,7 @@ from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.cluster import hierarchical_cluster, kmeans_cluster
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -52,7 +53,8 @@ def cluster_server(input, output, session, state: WorkbenchState, get_current_df
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         features = list(input.features())
         # Was req(len(features) >= 2), which aborts the run silently. A student
         # who picked one variable and pressed Run saw nothing happen and no

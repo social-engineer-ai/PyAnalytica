@@ -10,6 +10,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.model.evaluate import evaluate_classification
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -60,7 +61,12 @@ def evaluate_server(input, output, session, state: WorkbenchState, get_current_d
     @reactive.event(input.run_btn)
     def _run():
         model_name = input.model_name()
-        req(model_name)
+        if not require(
+            model_name,
+            "No saved model chosen. Run a model under Model > Regression or "
+            "Model > Classify first; it is saved automatically.",
+        ):
+            return
         try:
             artifact = state.model_store.get(model_name)
 

@@ -11,6 +11,7 @@ from pyanalytica.explore.summarize import group_summarize
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -55,11 +56,15 @@ def summarize_server(input, output, session, state: WorkbenchState, get_current_
     @reactive.event(input.run_btn)
     def result():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         group_cols = list(input.group_cols())
         value_cols = list(input.value_cols())
         agg_funcs = list(input.agg_funcs())
-        req(group_cols)
+        req(require(
+            group_cols,
+            "Choose at least one column to group by. Hold Ctrl (Cmd on a Mac) "
+            "to select more than one.",
+        ))
 
         result_df, snippet = group_summarize(
             df, group_cols, value_cols, agg_funcs if value_cols else ["count"], input.pct_total()

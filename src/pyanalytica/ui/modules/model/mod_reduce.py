@@ -9,6 +9,7 @@ from pyanalytica.core.types import get_numeric_columns
 from pyanalytica.model.reduce import pca_analysis
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -50,7 +51,8 @@ def reduce_server(input, output, session, state: WorkbenchState, get_current_df)
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         features = list(input.features())
         # See mod_cluster: req() here aborted the run without a word, so
         # picking one feature -- or none -- looked like a broken button.

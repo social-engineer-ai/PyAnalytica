@@ -8,6 +8,7 @@ from pyanalytica.core.state import WorkbenchState
 from pyanalytica.core.types import get_groupable_columns, get_numeric_columns
 from pyanalytica.visualize.compare import bar_of_means, grouped_boxplot, grouped_violin, strip_plot
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -64,9 +65,13 @@ def compare_server(input, output, session, state: WorkbenchState, get_current_df
     @reactive.event(input.run_btn)
     def chart():
         df = get_current_df()
-        req(df is not None)
+        req(require(df is not None, NO_DATASET))
         x, y = input.x_cat(), input.y_num()
-        req(x, y)
+        req(require(
+            x and y,
+            "Choose both a grouping column and a numeric column to compare "
+            "across those groups.",
+        ))
         ct = input.chart_type()
         hue = input.hue() or None
         facet_c = input.facet_col() or None

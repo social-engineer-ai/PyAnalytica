@@ -14,6 +14,7 @@ from pyanalytica.model.regression import linear_regression
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -64,10 +65,37 @@ def regression_server(input, output, session, state: WorkbenchState, get_current
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         target = input.target()
         features = list(input.features())
-        req(target, features)
+        if not require(
+            target and features,
+            "Choose a target (the Y you want to explain) and at least one "
+            "feature (an X to explain it with). Hold Ctrl (Cmd on a Mac) to "
+            "select more than one feature.",
+        ):
+            return
+
+        # Both lists offer every column, so the first column starts selected in
+        # each and a student who opens the tab and presses Run immediately gets
+        # "Expected unique column names, got: 'X' 2 times" straight from pandas.
+        # Explaining a variable cannot help predict itself is more use than
+        # relaying that.
+        if target in features:
+            features = [f for f in features if f != target]
+            if not features:
+                require(
+                    False,
+                    f"'{target}' is both the target and the only feature. A "
+                    f"variable cannot be used to explain itself -- choose at "
+                    f"least one different feature.",
+                )
+                return
+            ui.notification_show(
+                f"'{target}' is the target, so it was left out of the features.",
+                type="message",
+            )
         try:
             test_size = input.test_size() if input.test_size() > 0 else None
             seed = int(input.random_seed()) if input.random_seed() is not None else 42

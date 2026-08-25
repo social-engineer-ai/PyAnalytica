@@ -22,6 +22,7 @@ from pyanalytica.homework.loader import (
 )
 from pyanalytica.homework.submission import create_submission
 from pyanalytica.ui.components.downloads import render_download
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +151,8 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
     @reactive.event(input.yaml_upload)
     def _load_from_file():
         file_info = input.yaml_upload()
-        req(file_info)
+        if not require(file_info, "Choose a homework file to open first."):
+            return
         try:
             import yaml  # type: ignore[import-untyped]
 
@@ -167,7 +169,8 @@ def homework_server(input, output, session, state: WorkbenchState, get_current_d
     @reactive.event(input.load_pasted)
     def _load_from_paste():
         content = input.yaml_paste()
-        req(content and content.strip())
+        if not require(content and content.strip(), "Paste the homework text before loading it."):
+            return
         try:
             import yaml  # type: ignore[import-untyped]
 

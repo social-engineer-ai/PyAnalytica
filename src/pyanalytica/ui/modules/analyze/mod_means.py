@@ -15,6 +15,7 @@ from pyanalytica.analyze.normality import shapiro_wilk_test
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -97,9 +98,11 @@ def means_server(input, output, session, state: WorkbenchState, get_current_df):
     @reactive.event(input.run_btn)
     def _run():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         col = input.value_col()
-        req(col)
+        if not require(col, "Choose the numeric column whose mean you want to test."):
+            return
         tt = input.test_type()
 
         try:

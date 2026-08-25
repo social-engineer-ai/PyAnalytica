@@ -11,6 +11,7 @@ from pyanalytica.data.view import FilterCondition, apply_filters, sort_dataframe
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -77,7 +78,8 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
         col = input.filter_col()
         op = input.filter_op()
         val = input.filter_val()
-        req(col)
+        if not require(col, "Choose the column to filter on first."):
+            return
         f = FilterCondition(column=col, operator=op, value=val)
         current = filters()
         filters.set(current + [f])
@@ -121,7 +123,8 @@ def view_server(input, output, session, state: WorkbenchState, get_current_df):
     @reactive.event(input.apply_btn)
     def _apply():
         df = filtered_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         for name in state.dataset_names():
             if state.get(name) is get_current_df():
                 state.update(name, df, Operation(

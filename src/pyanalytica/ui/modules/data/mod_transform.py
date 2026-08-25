@@ -11,6 +11,7 @@ from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data import transform
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 
 from datetime import datetime
 
@@ -110,15 +111,18 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
 
         if action == "drop_columns":
             drop_cols = list(input.drop_cols())
-            req(len(drop_cols) > 0)
+            if not require(drop_cols, "Choose at least one column to drop."):
+                return None
             return transform.drop_columns(df, drop_cols)
 
         col = input.col()
-        req(col)
+        if not require(col, "Choose the column to transform."):
+            return None
 
         if action == "rename_column":
             new_name = input.new_col_name()
-            req(new_name and new_name.strip())
+            if not require(new_name and new_name.strip(), "Type the new column name."):
+                return None
             return transform.rename_column(df, col, new_name.strip())
         elif action == "fill_missing":
             method = input.fill_method()
@@ -159,7 +163,8 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
     @reactive.event(input.preview_btn)
     def _preview():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         try:
             result = _run_transform(df)
             if result is not None:
@@ -178,7 +183,8 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
     @reactive.event(input.apply_btn)
     def _apply():
         df = get_current_df()
-        req(df is not None)
+        if not require(df is not None, NO_DATASET):
+            return
         action = input.action()
 
         try:

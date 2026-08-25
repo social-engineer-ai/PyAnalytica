@@ -7,6 +7,7 @@ from shiny import module, reactive, render, req, ui
 from pyanalytica.core.state import Operation, WorkbenchState
 from pyanalytica.data.combine import detect_overlapping_columns, merge_dataframes
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -120,7 +121,11 @@ def combine_server(input, output, session, state: WorkbenchState, get_current_df
         key = input.join_key()
         how = input.how()
         result_name = input.result_name() or "merged"
-        req(left_name, right_name, key)
+        if not require(
+            left_name and right_name and key,
+            "Choose both datasets and the column to join them on.",
+        ):
+            return
 
         # Collect keep choices from overlap radio buttons
         infos = _overlap_info()

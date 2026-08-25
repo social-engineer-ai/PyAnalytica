@@ -11,6 +11,7 @@ from pyanalytica.model.predict import predict_from_artifact
 from pyanalytica.ui.components.code_panel import code_panel_server, code_panel_ui
 from pyanalytica.ui.components.decimals_control import decimals_server, decimals_ui
 from pyanalytica.ui.components.download_result import download_result_server, download_result_ui
+from pyanalytica.ui.components.requirements import NO_DATASET, require
 from pyanalytica.ui.components.selects import (
     update_choices,
     update_multi_choices,
@@ -74,7 +75,12 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
     @reactive.event(input.predict_btn)
     def _predict():
         model_name = input.model_name()
-        req(model_name)
+        if not require(
+            model_name,
+            "No saved model chosen. Run a model under Model > Regression or "
+            "Model > Classify first; it is saved automatically.",
+        ):
+            return
         try:
             artifact = state.model_store.get(model_name)
             source = input.data_source()
@@ -96,14 +102,16 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
                     actual_values = artifact.y_test
             elif source == "loaded":
                 ds_name = input.loaded_dataset()
-                req(ds_name)
+                if not require(ds_name, "Choose which loaded dataset to predict on."):
+                    return
                 df = state.get(ds_name)
                 # If the loaded dataset has the target column, grab actuals
                 if artifact.target_name in df.columns:
                     actual_values = df[artifact.target_name]
             else:  # upload
                 file_info = input.upload_file()
-                req(file_info)
+                if not require(file_info, "Choose a file to predict on first."):
+                    return
                 file_path = file_info[0]["datapath"]
                 df = pd.read_csv(file_path)
                 if artifact.target_name in df.columns:
@@ -132,7 +140,8 @@ def predict_server(input, output, session, state: WorkbenchState, get_current_df
     @reactive.event(input.save_btn)
     def _save():
         df = pred_df()
-        req(df is not None)
+        if not require(df is not None, "Run a prediction before saving it."):
+            return
         name = input.save_name().strip()
         if not name:
             name = "predictions"
