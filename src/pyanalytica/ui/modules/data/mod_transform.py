@@ -16,6 +16,23 @@ from pyanalytica.ui.components.requirements import NO_DATASET, require
 from datetime import datetime
 
 
+def _coerce_literal(text: str | None):
+    """Read a typed value as a number when it looks like one, else as text.
+
+    Lets "Add Conditional Column" produce a numeric 1/0 indicator rather than
+    the strings "1"/"0", which would not average.
+    """
+    if text is None:
+        return ""
+    text = text.strip()
+    for cast in (int, float):
+        try:
+            return cast(text)
+        except (TypeError, ValueError):
+            continue
+    return text
+
+
 @module.ui
 def transform_ui():
     return ui.layout_sidebar(
@@ -29,12 +46,17 @@ def transform_ui():
                 "drop_duplicates": "Drop Duplicates",
                 "dummy_encode": "Dummy Encode (One-Hot)",
                 "ordinal_encode": "Ordinal Encode",
+                "add_arithmetic": "Add Calculated Column",
+                "add_conditional": "Add Conditional Column",
+                "add_binned": "Add Binned Column",
                 "add_log": "Add Log Column",
                 "add_zscore": "Add Z-score Column",
                 "add_rank": "Add Rank Column",
                 "str_lower": "String: Lowercase",
                 "str_upper": "String: Uppercase",
                 "str_strip": "String: Strip Whitespace",
+                "str_replace": "String: Replace",
+                "str_extract": "String: Extract",
             }),
             ui.output_ui("action_controls"),
             ui.input_action_button("preview_btn", "Preview", class_="btn-outline-info w-100 mt-2"),
@@ -64,6 +86,25 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
             _prev_ds_id.set(new_id)
             _preview_result.set(None)
 
+    def _prior(name: str, valid=None, default=None):
+        """Value an input already holds, if it is still usable.
+
+        ``action_controls`` re-renders whenever the active dataset changes, and
+        applying a transform replaces the dataset. Without carrying the previous
+        selection across, every Apply silently reset Column to the first column,
+        so a second Apply would land on the wrong one.
+        """
+        with reactive.isolate():
+            try:
+                value = getattr(input, name)()
+            except Exception:
+                return default
+        if value is None or value == "":
+            return default
+        if valid is not None and value not in valid:
+            return default
+        return value
+
     @render.ui
     def action_controls():
         _prev_ds_id()  # re-render when dataset changes
@@ -80,27 +121,76 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
             col_choices = cols
 
         if action == "drop_columns":
+            kept = [c for c in (_prior("drop_cols") or ()) if c in cols]
             controls = [ui.input_selectize("drop_cols", "Columns to Drop",
-                choices=cols, multiple=True)]
+                choices=cols, multiple=True, selected=kept or None)]
         else:
-            controls = [ui.input_select("col", "Column", choices=col_choices)]
+            controls = [ui.input_select("col", "Column", choices=col_choices,
+                selected=_prior("col", valid=col_choices))]
 
         if action == "rename_column":
-            controls.append(ui.input_text("new_col_name", "New Column Name"))
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
         elif action == "fill_missing":
             controls.append(ui.input_select("fill_method", "Method",
-                choices=["mean", "median", "mode", "ffill", "bfill", "value"]))
-            controls.append(ui.input_text("fill_value", "Value (if method=value)"))
+                choices=["mean", "median", "mode", "ffill", "bfill", "value"],
+                selected=_prior("fill_method",
+                    valid=["mean", "median", "mode", "ffill", "bfill", "value"])))
+            controls.append(ui.input_text("fill_value", "Value (if method=value)",
+                value=_prior("fill_value", default="")))
         elif action == "convert_dtype":
+            dtypes = ["int", "float", "str", "category", "datetime", "bool"]
             controls.append(ui.input_select("target_dtype", "Target Type",
-                choices=["int", "float", "str", "category", "datetime", "bool"]))
+                choices=dtypes, selected=_prior("target_dtype", valid=dtypes)))
         elif action in ("add_log", "add_zscore", "add_rank"):
-            controls.append(ui.input_text("new_col_name", "New Column Name"))
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
+        elif action == "add_arithmetic":
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
+            controls.append(ui.input_text("expr", "Expression",
+                value=_prior("expr", default=""),
+                placeholder="e.g. salary / 12"))
+        elif action == "add_conditional":
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
+            controls.append(ui.input_text("condition", "Condition",
+                value=_prior("condition", default=""),
+                placeholder="e.g. attendance_pct > 90"))
+            controls.append(ui.input_text("true_val", "Value when true",
+                value=_prior("true_val", default="1")))
+            controls.append(ui.input_text("false_val", "Value when false",
+                value=_prior("false_val", default="0")))
+        elif action == "add_binned":
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
+            controls.append(ui.input_numeric("n_bins", "Number of bins",
+                value=_prior("n_bins", default=3), min=2, max=20))
+            controls.append(ui.input_text("bin_labels",
+                "Bin labels (comma-separated, optional)",
+                value=_prior("bin_labels", default=""),
+                placeholder="e.g. low, medium, high"))
+        elif action == "str_replace":
+            controls.append(ui.input_text("find_text", "Find",
+                value=_prior("find_text", default=""), placeholder="e.g. %"))
+            controls.append(ui.input_text("replace_text", "Replace with (may be blank)",
+                value=_prior("replace_text", default="")))
+            controls.append(ui.input_checkbox("use_regex", "Find is a regular expression",
+                value=bool(_prior("use_regex", default=False))))
+        elif action == "str_extract":
+            controls.append(ui.input_text("new_col_name", "New Column Name",
+                value=_prior("new_col_name", default="")))
+            controls.append(ui.input_text("pattern", "Regular expression",
+                value=_prior("pattern", default=""), placeholder=r"e.g. \d+"))
         elif action == "dummy_encode":
-            controls.append(ui.input_checkbox("drop_first", "Drop first level", value=False))
+            controls.append(ui.input_checkbox("drop_first", "Drop first level",
+                value=bool(_prior("drop_first", default=False))))
+            controls.append(ui.input_checkbox("keep_original", "Keep original column",
+                value=bool(_prior("keep_original", default=False))))
         elif action == "ordinal_encode":
             controls.append(ui.input_text("ordinal_order",
                 "Category order (comma-separated, optional)",
+                value=_prior("ordinal_order", default=""),
                 placeholder="e.g. low, medium, high"))
 
         return ui.TagList(*controls)
@@ -143,15 +233,54 @@ def transform_server(input, output, session, state: WorkbenchState, get_current_
         elif action == "add_rank":
             new_name = input.new_col_name() or f"{col}_rank"
             return transform.add_column_rank(df, new_name, col)
+        elif action == "add_arithmetic":
+            expr = (input.expr() or "").strip()
+            if not require(expr, "Type an expression, e.g. salary / 12."):
+                return None
+            new_name = (input.new_col_name() or "").strip() or "calculated"
+            return transform.add_column_arithmetic(df, new_name, expr)
+        elif action == "add_conditional":
+            condition = (input.condition() or "").strip()
+            if not require(condition, "Type a condition, e.g. salary > 50000."):
+                return None
+            new_name = (input.new_col_name() or "").strip() or "flag"
+            return transform.add_column_conditional(
+                df, new_name, condition,
+                _coerce_literal(input.true_val()),
+                _coerce_literal(input.false_val()),
+            )
+        elif action == "add_binned":
+            new_name = (input.new_col_name() or "").strip() or f"{col}_bin"
+            n_bins = int(input.n_bins() or 3)
+            raw_labels = (input.bin_labels() or "").strip()
+            labels = [s.strip() for s in raw_labels.split(",") if s.strip()] or None
+            return transform.add_column_binned(df, new_name, col, n_bins, labels)
         elif action == "str_lower":
             return transform.str_lower(df, col)
         elif action == "str_upper":
             return transform.str_upper(df, col)
         elif action == "str_strip":
             return transform.str_strip(df, col)
+        elif action == "str_replace":
+            find_text = input.find_text() or ""
+            if not require(find_text, "Type the text to find."):
+                return None
+            return transform.str_replace(
+                df, col, find_text, input.replace_text() or "",
+                regex=bool(input.use_regex()),
+            )
+        elif action == "str_extract":
+            pattern = (input.pattern() or "").strip()
+            if not require(pattern, "Type a regular expression to extract."):
+                return None
+            new_name = (input.new_col_name() or "").strip() or f"{col}_extracted"
+            return transform.str_extract(df, new_name, col, pattern)
         elif action == "dummy_encode":
-            drop_first = input.drop_first()
-            return transform.dummy_encode(df, col, drop_first=drop_first)
+            return transform.dummy_encode(
+                df, col,
+                drop_first=bool(input.drop_first()),
+                keep_original=bool(input.keep_original()),
+            )
         elif action == "ordinal_encode":
             order_str = input.ordinal_order().strip()
             order = [s.strip() for s in order_str.split(",") if s.strip()] if order_str else None

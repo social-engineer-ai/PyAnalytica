@@ -31,7 +31,13 @@ jobs:
         run: python -m pyanalytica.datasets.generate
 
       - name: Run tests
-        run: python -m pytest tests/ -v --ignore=tests/test_e2e.py --ignore=tests/test_e2e_datasets.py
+        # Every browser test must be ignored here: this job does not install
+        # Chromium. Missing one costs a red matrix on all five interpreters.
+        run: >-
+          python -m pytest tests/ -v
+          --ignore=tests/test_e2e.py
+          --ignore=tests/test_e2e_datasets.py
+          --ignore=tests/test_e2e_first_click.py
 
   e2e:
     name: Browser tests
@@ -59,7 +65,12 @@ jobs:
       - name: Run end-to-end tests
         # Both browser files in one run: they passed separately and failed
         # together once, because each loads datasets the other does not.
-        run: python -m pytest tests/test_e2e.py tests/test_e2e_datasets.py -v
+        run: >-
+          python -m pytest
+          tests/test_e2e.py
+          tests/test_e2e_datasets.py
+          tests/test_e2e_first_click.py
+          -v
         env:
           MPLBACKEND: Agg
 

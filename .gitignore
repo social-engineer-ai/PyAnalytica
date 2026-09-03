@@ -42,3 +42,4 @@ Thumbs.db
 # Course content belongs in a private repo or the LMS, not here.
 *.master.yaml
 *.key.yaml
+e2e_result.log

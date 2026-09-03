@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -12,22 +13,116 @@ from pyanalytica.core.codegen import CodeSnippet
 
 # --- Expression validation ---
 
-_FORBIDDEN_PATTERNS = (
-    "__", "import", "exec", "eval", "compile", "open", "getattr",
+_FORBIDDEN_NAMES = frozenset({
+    "import", "exec", "eval", "compile", "open", "getattr",
     "setattr", "delattr", "globals", "locals", "vars", "dir",
     "breakpoint", "exit", "quit", "input", "print",
-)
+})
+
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def _validate_expr(expr: str) -> None:
-    """Reject expressions containing dangerous patterns for df.eval()."""
-    lowered = expr.lower().replace(" ", "")
-    for pattern in _FORBIDDEN_PATTERNS:
-        if pattern in lowered:
+    """Reject expressions containing dangerous names for df.eval().
+
+    Matching is on whole identifiers rather than substrings, so ordinary column
+    names such as ``open_rate``, ``direct_cost`` or ``exit_survey`` are allowed.
+    """
+    if "__" in expr:
+        raise ValueError(
+            "Expression may not contain '__'. "
+            "Only arithmetic on column names is allowed."
+        )
+    for name in _IDENT_RE.findall(expr):
+        if name in _FORBIDDEN_NAMES:
             raise ValueError(
-                f"Expression contains forbidden pattern '{pattern}'. "
+                f"Expression contains forbidden name '{name}'. "
                 "Only arithmetic on column names is allowed."
             )
+
+
+# --- Column type helpers ---
+
+def _dtype_label(s: pd.Series) -> str:
+    """Human-readable description of a column's type, for error messages."""
+    if pd.api.types.is_bool_dtype(s):
+        return "true/false"
+    if pd.api.types.is_numeric_dtype(s):
+        return "numeric"
+    if pd.api.types.is_datetime64_any_dtype(s):
+        return "datetime"
+    if isinstance(s.dtype, pd.CategoricalDtype):
+        return "categorical"
+    return "text"
+
+
+def _require_numeric(df: pd.DataFrame, col: str, what: str) -> None:
+    """Raise a readable error if *col* is not numeric."""
+    if not pd.api.types.is_numeric_dtype(df[col]):
+        raise ValueError(
+            f"{what} needs a numeric column, but '{col}' is "
+            f"{_dtype_label(df[col])}. Convert it with Convert Data Type first."
+        )
+
+
+def _require_text(df: pd.DataFrame, col: str, what: str) -> None:
+    """Raise a readable error if *col* holds numbers or dates rather than text."""
+    s = df[col]
+    if pd.api.types.is_numeric_dtype(s) or pd.api.types.is_datetime64_any_dtype(s):
+        raise ValueError(
+            f"{what} needs a text column, but '{col}' is {_dtype_label(s)}."
+        )
+
+
+def _reject_coercion_loss(
+    original: pd.Series, converted: pd.Series, col: str, kind: str, hint: str
+) -> None:
+    """Raise if a coercion silently turned real values into nulls.
+
+    pandas' ``errors="coerce"`` is convenient but destructive: an unparseable
+    value becomes NaN with no signal. Refuse the conversion instead.
+    """
+    lost_mask = converted.isna() & original.notna()
+    lost = int(lost_mask.sum())
+    if not lost:
+        return
+    total = int(original.notna().sum())
+    sample = original[lost_mask].iloc[0]
+    raise ValueError(
+        f"Cannot convert '{col}' to {kind}: {lost} of {total} values are not "
+        f"valid (for example {sample!r}). The column was left unchanged. {hint}"
+    )
+
+
+_TRUE_TOKENS = frozenset({"true", "t", "yes", "y", "1"})
+_FALSE_TOKENS = frozenset({"false", "f", "no", "n", "0"})
+
+
+def _to_boolean(s: pd.Series, col: str) -> pd.Series:
+    """Convert a column to nullable booleans by meaning, not by truthiness.
+
+    ``astype(bool)`` maps every non-empty string to True, so "No" and "False"
+    would both become True. Map recognised tokens instead and refuse the rest.
+    """
+    if pd.api.types.is_bool_dtype(s):
+        return s.astype("boolean")
+    if pd.api.types.is_numeric_dtype(s):
+        return s.astype("boolean")
+
+    tokens = s.astype("string").str.strip().str.lower()
+    mapped = tokens.map(
+        lambda t: True if t in _TRUE_TOKENS else (False if t in _FALSE_TOKENS else pd.NA),
+        na_action="ignore",
+    )
+    unrecognised = mapped.isna() & s.notna()
+    if unrecognised.any():
+        examples = sorted({str(v) for v in s[unrecognised]})[:4]
+        raise ValueError(
+            f"Cannot convert '{col}' to true/false: {int(unrecognised.sum())} values "
+            f"are not recognisable (for example {examples}). "
+            "Recognised values are yes/no, true/false, y/n and 1/0."
+        )
+    return mapped.astype("boolean")
 
 
 # --- Missing values ---
@@ -45,16 +140,22 @@ def fill_missing(
         result[col] = result[col].fillna(value)
         code = f'df["{col}"] = df["{col}"].fillna({_repr_val(value)})'
     elif method == "mean":
+        _require_numeric(df, col, "Filling with the mean")
         fill_val = result[col].mean()
         result[col] = result[col].fillna(fill_val)
         code = f'df["{col}"] = df["{col}"].fillna(df["{col}"].mean())'
     elif method == "median":
+        _require_numeric(df, col, "Filling with the median")
         fill_val = result[col].median()
         result[col] = result[col].fillna(fill_val)
         code = f'df["{col}"] = df["{col}"].fillna(df["{col}"].median())'
     elif method == "mode":
-        fill_val = result[col].mode().iloc[0] if not result[col].mode().empty else None
-        result[col] = result[col].fillna(fill_val)
+        modes = result[col].mode()
+        if modes.empty:
+            raise ValueError(
+                f"Column '{col}' has no non-missing values, so it has no mode."
+            )
+        result[col] = result[col].fillna(modes.iloc[0])
         code = f'df["{col}"] = df["{col}"].fillna(df["{col}"].mode().iloc[0])'
     elif method == "ffill":
         result[col] = result[col].ffill()
@@ -90,15 +191,33 @@ def convert_dtype(
     """Convert a column to a different dtype.
 
     target_dtype: 'int', 'float', 'str', 'category', 'datetime', 'bool'
+
+    Conversions that would turn real values into nulls are refused rather than
+    applied, so a column is never silently emptied.
     """
     result = df.copy()
+    numeric_hint = (
+        "Remove stray characters first — String: Replace will strip things "
+        "like '%', ',' or '$'."
+    )
 
     if target_dtype == "int":
-        result[col] = pd.to_numeric(result[col], errors="coerce").astype("Int64")
-        code = f'df["{col}"] = pd.to_numeric(df["{col}"], errors="coerce").astype("Int64")'
+        numeric = pd.to_numeric(result[col], errors="coerce")
+        _reject_coercion_loss(result[col], numeric, col, "a whole number", numeric_hint)
+        fractional = numeric.dropna() % 1 != 0
+        if fractional.any():
+            raise ValueError(
+                f"Cannot convert '{col}' to a whole number: {int(fractional.sum())} "
+                "values have decimals and would be silently truncated. "
+                "Convert to float instead, or round the column first."
+            )
+        result[col] = numeric.astype("Int64")
+        code = f'df["{col}"] = pd.to_numeric(df["{col}"]).astype("Int64")'
     elif target_dtype == "float":
-        result[col] = pd.to_numeric(result[col], errors="coerce").astype(float)
-        code = f'df["{col}"] = pd.to_numeric(df["{col}"], errors="coerce").astype(float)'
+        numeric = pd.to_numeric(result[col], errors="coerce")
+        _reject_coercion_loss(result[col], numeric, col, "a number", numeric_hint)
+        result[col] = numeric.astype(float)
+        code = f'df["{col}"] = pd.to_numeric(df["{col}"]).astype(float)'
     elif target_dtype == "str":
         result[col] = result[col].astype(str)
         code = f'df["{col}"] = df["{col}"].astype(str)'
@@ -106,11 +225,21 @@ def convert_dtype(
         result[col] = result[col].astype("category")
         code = f'df["{col}"] = df["{col}"].astype("category")'
     elif target_dtype == "datetime":
-        result[col] = pd.to_datetime(result[col], errors="coerce")
-        code = f'df["{col}"] = pd.to_datetime(df["{col}"], errors="coerce")'
+        converted = pd.to_datetime(result[col], errors="coerce")
+        _reject_coercion_loss(
+            result[col], converted, col, "a date",
+            "Check the date format is consistent down the column.",
+        )
+        result[col] = converted
+        code = f'df["{col}"] = pd.to_datetime(df["{col}"])'
     elif target_dtype == "bool":
-        result[col] = result[col].astype(bool)
-        code = f'df["{col}"] = df["{col}"].astype(bool)'
+        result[col] = _to_boolean(result[col], col)
+        code = (
+            f'_true = {{"true", "t", "yes", "y", "1"}}\n'
+            f'df["{col}"] = (\n'
+            f'    df["{col}"].astype("string").str.strip().str.lower().isin(_true)\n'
+            f")"
+        )
     else:
         raise ValueError(f"Unknown target dtype: {target_dtype}")
 
@@ -200,6 +329,14 @@ def add_column_binned(
     bins: int | list, labels: list[str] | None = None
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Add a column with binned/discretized values."""
+    _require_numeric(df, source_col, "Binning")
+    if labels is not None:
+        n_bins = bins if isinstance(bins, int) else len(bins) - 1
+        if len(labels) != n_bins:
+            raise ValueError(
+                f"Got {len(labels)} label(s) for {n_bins} bin(s). "
+                "Give one label per bin, or leave the labels blank."
+            )
     result = df.copy()
     result[new_col] = pd.cut(result[source_col], bins=bins, labels=labels)
 
@@ -212,8 +349,16 @@ def add_column_log(
     df: pd.DataFrame, new_col: str, source_col: str
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Add a log-transformed column."""
+    _require_numeric(df, source_col, "A log column")
     result = df.copy()
-    result[new_col] = np.log(result[source_col].clip(lower=1e-10))
+    source = result[source_col]
+    non_positive = int((source.dropna() <= 0).sum())
+    if non_positive:
+        raise ValueError(
+            f"'{source_col}' has {non_positive} value(s) that are zero or negative, "
+            "and the logarithm is undefined there. Filter or shift the column first."
+        )
+    result[new_col] = np.log(source)
     code = f'df["{new_col}"] = np.log(df["{source_col}"])'
     return result, CodeSnippet(code=code, imports=["import numpy as np", "import pandas as pd"])
 
@@ -222,9 +367,15 @@ def add_column_zscore(
     df: pd.DataFrame, new_col: str, source_col: str
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Add a z-score normalized column."""
+    _require_numeric(df, source_col, "A z-score column")
     result = df.copy()
     mean = result[source_col].mean()
     std = result[source_col].std()
+    if not std or pd.isna(std):
+        raise ValueError(
+            f"'{source_col}' has no spread (standard deviation is 0), "
+            "so a z-score is undefined."
+        )
     result[new_col] = (result[source_col] - mean) / std
 
     code = (
@@ -239,6 +390,7 @@ def add_column_rank(
     df: pd.DataFrame, new_col: str, source_col: str
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Add a rank column."""
+    _require_numeric(df, source_col, "A rank column")
     result = df.copy()
     result[new_col] = result[source_col].rank()
     code = f'df["{new_col}"] = df["{source_col}"].rank()'
@@ -249,6 +401,7 @@ def add_column_rank(
 
 def str_lower(df: pd.DataFrame, col: str) -> tuple[pd.DataFrame, CodeSnippet]:
     """Convert string column to lowercase."""
+    _require_text(df, col, "String: Lowercase")
     result = df.copy()
     result[col] = result[col].str.lower()
     code = f'df["{col}"] = df["{col}"].str.lower()'
@@ -257,6 +410,7 @@ def str_lower(df: pd.DataFrame, col: str) -> tuple[pd.DataFrame, CodeSnippet]:
 
 def str_upper(df: pd.DataFrame, col: str) -> tuple[pd.DataFrame, CodeSnippet]:
     """Convert string column to uppercase."""
+    _require_text(df, col, "String: Uppercase")
     result = df.copy()
     result[col] = result[col].str.upper()
     code = f'df["{col}"] = df["{col}"].str.upper()'
@@ -265,9 +419,33 @@ def str_upper(df: pd.DataFrame, col: str) -> tuple[pd.DataFrame, CodeSnippet]:
 
 def str_strip(df: pd.DataFrame, col: str) -> tuple[pd.DataFrame, CodeSnippet]:
     """Strip whitespace from string column."""
+    _require_text(df, col, "String: Strip Whitespace")
     result = df.copy()
     result[col] = result[col].str.strip()
     code = f'df["{col}"] = df["{col}"].str.strip()'
+    return result, CodeSnippet(code=code, imports=["import pandas as pd"])
+
+
+def str_replace(
+    df: pd.DataFrame, col: str, pattern: str, replacement: str = "",
+    regex: bool = False
+) -> tuple[pd.DataFrame, CodeSnippet]:
+    """Replace text within a string column, in place.
+
+    The usual reason to reach for this is clearing characters that stop a column
+    being read as a number — a '%' suffix, a thousands comma, a currency symbol.
+    """
+    _require_text(df, col, "String: Replace")
+    if not pattern:
+        raise ValueError("Type the text to find.")
+    result = df.copy()
+    result[col] = (
+        result[col].astype("string").str.replace(pattern, replacement, regex=regex)
+    )
+    code = (
+        f'df["{col}"] = df["{col}"].astype("string").str.replace('
+        f"{pattern!r}, {replacement!r}, regex={regex})"
+    )
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
@@ -275,21 +453,41 @@ def str_extract(
     df: pd.DataFrame, new_col: str, col: str, pattern: str
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Extract substring using regex pattern."""
+    _require_text(df, col, "String: Extract")
+    if not pattern:
+        raise ValueError("Type a pattern to extract.")
     result = df.copy()
-    result[new_col] = result[col].str.extract(f"({pattern})", expand=False)
-    code = f'df["{new_col}"] = df["{col}"].str.extract(r"({pattern})", expand=False)'
+    result[new_col] = result[col].astype("string").str.extract(f"({pattern})", expand=False)
+    code = (
+        f'df["{new_col}"] = df["{col}"].astype("string")'
+        f'.str.extract(r"({pattern})", expand=False)'
+    )
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
 # --- Encoding ---
 
 def dummy_encode(
-    df: pd.DataFrame, column: str, drop_first: bool = False
+    df: pd.DataFrame, column: str, drop_first: bool = False,
+    keep_original: bool = False
 ) -> tuple[pd.DataFrame, CodeSnippet]:
-    """One-hot / dummy encode a categorical column."""
+    """One-hot / dummy encode a categorical column.
+
+    By default pandas replaces the source column with its indicator columns.
+    Pass ``keep_original=True`` to retain it alongside them.
+    """
     result = pd.get_dummies(df, columns=[column], drop_first=drop_first)
     drop_str = ", drop_first=True" if drop_first else ""
     code = f'df = pd.get_dummies(df, columns=["{column}"]{drop_str})'
+
+    if keep_original:
+        result.insert(df.columns.get_loc(column), column, df[column])
+        code = (
+            f"{column}_original = df[\"{column}\"]\n"
+            f'df = pd.get_dummies(df, columns=["{column}"]{drop_str})\n'
+            f'df.insert({df.columns.get_loc(column)}, "{column}", {column}_original)'
+        )
+
     return result, CodeSnippet(code=code, imports=["import pandas as pd"])
 
 
@@ -298,12 +496,26 @@ def ordinal_encode(
 ) -> tuple[pd.DataFrame, CodeSnippet]:
     """Map categories to integers (0, 1, 2, ...).
 
-    If *order* is given, categories are mapped in that order.
-    Otherwise, sorted unique values are used.
+    If *order* is given, categories are mapped in that order and every category
+    present must appear in it — otherwise the omitted ones would silently
+    become nulls. If *order* is omitted, sorted unique values are used, which is
+    alphabetical and therefore rarely the right ranking for an ordered
+    dimension: pass the order explicitly for those.
     """
     result = df.copy()
+    present = set(result[column].dropna().unique())
+
     if order is None:
-        order = sorted(result[column].dropna().unique())
+        order = sorted(present)
+    else:
+        unlisted = present - set(order)
+        if unlisted:
+            raise ValueError(
+                f"Category order for '{column}' does not mention "
+                f"{sorted(str(v) for v in unlisted)}. Every category must be "
+                "listed, or leave the order blank to use alphabetical order."
+            )
+
     mapping = {val: i for i, val in enumerate(order)}
     result[column] = result[column].map(mapping)
 
@@ -316,6 +528,4 @@ def ordinal_encode(
 
 def _repr_val(val: Any) -> str:
     """Represent a value for code generation."""
-    if isinstance(val, str):
-        return f'"{val}"'
     return repr(val)

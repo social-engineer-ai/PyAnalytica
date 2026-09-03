@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-03
+
+Data > Transform could destroy a column and report success. Everything here came
+out of driving the app through the Transform tab against a real teaching dataset
+whose percentage columns are stored as text.
+
+### Fixed
+
+- **Converting a column no longer empties it silently.** Convert Data Type used
+  pandas' `errors="coerce"` and never looked at the result, so converting a
+  column of `"96%"` to a number turned all 5,000 values into blanks, showed
+  "Transform applied", and logged nothing. Conversions that would turn real
+  values into blanks are now refused, and the message says how many values
+  failed, gives an example, and points at String: Replace.
+- **The Column selector no longer resets after Apply.** Applying a transform
+  replaces the active dataset, which re-rendered the sidebar and quietly reset
+  Column to the first column in the table. A second Apply then landed on the
+  wrong column -- in testing this converted an ID column to blanks in one click.
+  Selections now survive the re-render.
+- **Converting text to true/false reads the values instead of their length.**
+  `astype(bool)` treats every non-empty string as True, so a Yes/No column
+  became all True, silently reversing every "No". Yes/no, true/false, y/n and
+  1/0 are now mapped by meaning, and anything unrecognised is refused.
+- **Operations on the wrong column type explain themselves.** Stripping
+  whitespace from a numeric column, filling text with a mean, or z-scoring text
+  raised raw `AttributeError`/`TypeError` tracebacks. They now say which column,
+  what type it is, and what is needed instead. Converting a column with decimals
+  to a whole number is refused rather than crashing.
+- **Add Rank now refuses text, as Add Z-score already did.** Ranking a text
+  column silently succeeded and ranked it alphabetically.
+- **Add Log no longer disagrees with the code it shows you.** It clamped values
+  to 1e-10, so log(0) came out as -23.03 while the generated snippet
+  `np.log(df["x"])` would give `-inf`. Non-positive values are now refused and
+  the snippet matches what ran.
+- **Calculated columns accept ordinary column names.** The expression guard
+  matched forbidden words as substrings, so `open_rate * 2`,
+  `direct_cost + indirect_cost` and `exit_survey_score - 1` were all rejected.
+  Matching is now on whole identifiers.
+- **An incomplete category order is refused.** Ordinal Encode silently turned
+  any category missing from a supplied order into a blank.
+- **Data > Profile flags numbers-stored-as-text in string columns too.** The
+  check only looked at object columns, so it missed exactly the case that
+  follows a String: Replace.
+
+### Added
+
+- **String: Replace** -- clear characters that stop a column being read as a
+  number, such as a `%` suffix or a thousands comma. Missing values stay
+  missing rather than becoming the text "nan".
+- **String: Extract** -- pull a pattern out of a text column into a new column.
+- **Add Calculated Column** -- a new column from an arithmetic expression.
+- **Add Conditional Column** -- a new column from a condition, with typed values
+  read as numbers where they look like numbers, so a 1/0 indicator averages.
+- **Add Binned Column** -- cut a numeric column into labelled bands.
+- **Keep original column** option on Dummy Encode, which previously always
+  replaced the source column.
+
+These five operations already existed in `data/transform.py` but had never been
+wired into the Transform tab, so no one could reach them.
+
 ## [0.6.4] - 2026-08-25
 
 Four bugs that reached real people, and the sweep behind them. Every item here
