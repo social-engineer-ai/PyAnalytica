@@ -129,7 +129,9 @@ def profile_dataframe(df: pd.DataFrame) -> DataProfile:
 
     # Type mismatches: numeric columns stored as strings
     type_mismatches = []
-    for col in df.select_dtypes(include=["object"]).columns:
+    # "string" as well as "object": string-dtype columns come out of the
+    # String: Replace transform, which is exactly when this hint is most useful.
+    for col in df.select_dtypes(include=["object", "string"]).columns:
         try:
             pd.to_numeric(df[col].dropna().head(100))
             type_mismatches.append(col)
